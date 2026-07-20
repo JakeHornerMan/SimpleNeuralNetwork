@@ -205,6 +205,33 @@
   .legend .row { display: flex; align-items: center; gap: 8px; }
   .swatch { width: 26px; height: 12px; border-radius: 3px; }
 
+  .inspector {
+    margin-top: 22px; padding: 20px;
+    display: grid; grid-template-columns: 224px 1fr; gap: 22px; align-items: start;
+  }
+  @media (max-width: 620px) { .inspector { grid-template-columns: 1fr; } }
+  .wmap {
+    width: 224px; height: 224px; border-radius: 12px;
+    background: #0b0f17; border: 1px solid var(--line);
+    image-rendering: pixelated; justify-self: center;
+  }
+  .inspText { min-width: 0; }
+  .inspTitle { font-size: 19px; margin: 0 0 8px; letter-spacing: -.01em; font-weight: 640; }
+  .inspSub { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; max-width: 58ch; }
+  .inspSub b { color: var(--ink); font-weight: 620; }
+  .inspBias {
+    margin: 0 0 16px; font-family: ui-monospace, monospace; font-size: 13px; color: var(--ink);
+    min-height: 1.2em;
+  }
+  .inspBias .k { color: var(--muted); }
+  .wKey { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--muted);
+    font-family: ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; }
+  .wKeyBar {
+    width: 140px; height: 10px; border-radius: 5px; border: 1px solid var(--line);
+    background: linear-gradient(90deg, rgb(235,60,60), rgb(24,28,26), rgb(46,224,138));
+  }
+  svg.net circle.clickable { cursor: pointer; }
+
   .themeToggle {
     position: fixed; top: 14px; right: 14px; z-index: 5;
     font: inherit; font-size: 12px; color: var(--muted);
@@ -212,6 +239,29 @@
     border-radius: 8px; padding: 6px 10px; cursor: pointer;
   }
   .themeToggle:hover { color: var(--ink); }
+
+  /* hover reminders */
+  [data-tip] { cursor: help; }
+  .lossKey[data-tip], .lossHint[data-tip] {
+    text-decoration: underline dotted;
+    text-decoration-color: color-mix(in oklab, var(--muted) 55%, transparent);
+    text-underline-offset: 3px;
+  }
+  [data-tip]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .tip {
+    position: fixed; z-index: 60; max-width: 260px; pointer-events: none;
+    padding: 9px 12px; border-radius: 10px;
+    background: var(--ink); color: var(--bg);
+    font-size: 12.5px; line-height: 1.45; box-shadow: var(--shadow);
+    opacity: 0; transform: translateY(3px); transition: opacity .12s ease, transform .12s ease;
+  }
+  .tip.show { opacity: 1; transform: translateY(0); }
+  .tip .tipRow { display: flex; gap: 11px; align-items: center; }
+  .tip .tipThumb { height: 64px; width: auto; border-radius: 6px; image-rendering: pixelated; background: #0b0f17; flex: none; box-shadow: 0 0 0 1px rgba(255,255,255,.12); }
+  .tip .tipMeta { display: flex; flex-direction: column; gap: 2px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .tip .tipMeta b { font-size: 13px; }
+  .tip .tipMeta span { opacity: .82; font-size: 11px; }
+  @media (prefers-reduced-motion: reduce) { .tip { transition: opacity .12s ease; transform: none; } }
 
   @media (prefers-reduced-motion: no-preference) {
     @keyframes ring { 0%,100% { stroke-opacity: .9; } 50% { stroke-opacity: .35; } }
@@ -271,14 +321,14 @@
         </div>
         <div class="lossBox">
           <div class="lossRow">
-            <span class="lossKey">Cross-entropy loss</span>
-            <span class="lossVal" id="lossVal">—</span>
+            <span class="lossKey" tabindex="0" data-tip="One number that scores how wrong the guess was. It checks how much confidence the network put on the TRUE digit — the surer it is of the right answer, the lower this goes.">Cross-entropy loss</span>
+            <span class="lossVal" id="lossVal" tabindex="0" data-tip="The current score. 0 = perfectly confident and correct. About 2.3 = no better than a blind guess. Above 3 = confidently pointing at the wrong digit.">—</span>
           </div>
-          <div class="lossMeter" title="0 (perfect) → 4.6 (true class at 1%). Tick = ln(10) ≈ 2.30 random-guess baseline.">
+          <div class="lossMeter" tabindex="0" data-tip="Same score as a bar. Left edge = 0 (perfect). Right edge ≈ 4.6 (only 1% confidence in the right answer). The little tick is the random-guess line at 2.30.">
             <div class="lossFill" id="lossFill"></div>
             <span class="lossBaseline"></span>
           </div>
-          <span class="lossHint" id="lossHint">pick the true label to measure how wrong the guess is</span>
+          <span class="lossHint" id="lossHint" tabindex="0" data-tip="ln(10) ≈ 2.30 is the score you'd get by guessing blindly between 10 digits. Sitting here means the network hasn't learned anything yet — which is expected, it's untrained.">pick the true label to measure how wrong the guess is</span>
         </div>
       </div>
       <div class="warn">
@@ -287,11 +337,26 @@
     </div>
   </div>
 
+  <div class="card inspector">
+    <canvas id="wmap" width="224" height="224" class="wmap" aria-label="Weight map of the selected neuron"></canvas>
+    <div class="inspText">
+      <p class="eyebrow" style="margin:0 0 8px">Weight inspector</p>
+      <h2 class="inspTitle" id="inspTitle">Click a neuron to see its weights</h2>
+      <p class="inspSub" id="inspSub">A hidden neuron holds <b>784 weights</b> — one for every input pixel — so its weights form a 28×28 map. An output neuron holds <b>128 weights</b>, one per hidden neuron, shown on the same 8×16 grid as the diagram.</p>
+      <p class="inspBias" id="inspBias"></p>
+      <div class="wKey">
+        <span>negative</span>
+        <span class="wKeyBar"></span>
+        <span>positive</span>
+      </div>
+    </div>
+  </div>
+
   <div class="legend">
-    <div class="row"><span class="swatch" style="background:var(--neuron)"></span> idle neuron</div>
-    <div class="row"><span class="swatch" style="background:linear-gradient(90deg,var(--neuron),var(--accent))"></span> activation strength</div>
+    <div class="row"><span class="swatch" style="background:linear-gradient(90deg,hsl(0,78%,46%),hsl(65,78%,46%),hsl(130,78%,46%))"></span> activation strength (weak → strong)</div>
+    <div class="row"><span class="swatch" style="background:hsl(130,78%,46%);box-shadow:0 0 0 2px #fff"></span> strongest signals (&gt;90%, white outline)</div>
     <div class="row"><span class="swatch" style="background:var(--amber)"></span> winning output (argmax)</div>
-    <div class="row" style="color:var(--muted)">Hover any hidden neuron for its index &amp; value.</div>
+    <div class="row" style="color:var(--muted)">Hover any neuron for a mini weight preview · click it to open the full inspector.</div>
   </div>
 </div>
 
@@ -324,6 +389,7 @@
   const hid = new Float32Array(HID);
   const out = new Float32Array(OUT);
   let trueLabel = null;                // the digit picked in the "Actual digit" selector (null = none picked)
+  let sel = null;                      // the neuron selected in the weight inspector: {type:'hid'|'out', idx} or null
 
   function forward(){
     // h = ReLU(W1 x + b1)
@@ -350,10 +416,14 @@
 
   // ================= build the SVG diagram once =================
   const net = document.getElementById("net");
-  const hidNodes = [], hidInLines = [];   // per hidden neuron
+  const hidNodes = [], hidInLines = [], hidInHalo = [];   // per hidden neuron (halo = white outline for strong signals)
   const outNodes = [], outLabels = [], outBars = [], outPcts = [];
-  const hidOutLines = [];                  // sampled hidden->output lines: {el, h, o}
-  let winRing;
+  const hidOutLines = [];                  // sampled hidden->output lines: {el, halo, h, o}
+  let winRing, selRing;                     // selRing = ring marking the neuron open in the weight inspector
+
+  const STRONG = 0.9;                       // signals above this get a white outline
+  // activation colour ramp: weak = red, strong = green (hue 0 -> 130)
+  function actColor(n){ const t = Math.max(0, Math.min(1, n)); return "hsl(" + Math.round(t*130) + ", 78%, 46%)"; }
 
   const PORT = {x:70, y:280};
   const HBOX = {x0:250, x1:560, y0:52, y1:508, cols:8, rows:16};
@@ -375,15 +445,18 @@
     net.appendChild(el("text", {x:(HBOX.x0+HBOX.x1)/2, y:24, "text-anchor":"middle", class:"stageTag"})).textContent = "hidden · 128 · ReLU";
     net.appendChild(el("text", {x:OX, y:24, "text-anchor":"middle", class:"stageTag"})).textContent = "output · 10";
 
-    // input port -> hidden lines (drawn first, behind nodes)
+    // input port -> hidden lines. Each gets a white halo line UNDERNEATH (drawn first, so the
+    // coloured line sits on top and the white peeks out as an outline when the signal is strong).
     const gLines1 = el("g", {}); net.appendChild(gLines1);
     for (let j=0;j<HID;j++){
       const p = hidPos(j);
+      const halo = el("line", {x1:PORT.x+18, y1:PORT.y, x2:p.x, y2:p.y, stroke:"#ffffff", "stroke-width":3, "stroke-opacity":0, "stroke-linecap":"round"});
+      gLines1.appendChild(halo); hidInHalo.push(halo);
       const ln = el("line", {x1:PORT.x+18, y1:PORT.y, x2:p.x, y2:p.y, stroke:"var(--accent)", "stroke-width":.7, "stroke-opacity":.05});
       gLines1.appendChild(ln); hidInLines.push(ln);
     }
 
-    // hidden -> output sampled lines (16 per output)
+    // hidden -> output sampled lines (16 per output), each with its own white halo underneath
     const gLines2 = el("g", {}); net.appendChild(gLines2);
     const rnd = mulberry32(999);
     for (let o=0;o<OUT;o++){
@@ -392,8 +465,10 @@
       while (picks.size < 16) picks.add((rnd()*HID)|0);
       picks.forEach(h => {
         const p = hidPos(h);
+        const halo = el("line", {x1:p.x, y1:p.y, x2:OX-18, y2:oy, stroke:"#ffffff", "stroke-width":2.6, "stroke-opacity":0, "stroke-linecap":"round"});
+        gLines2.appendChild(halo);
         const ln = el("line", {x1:p.x, y1:p.y, x2:OX-18, y2:oy, stroke:"var(--accent)", "stroke-width":.7, "stroke-opacity":.04});
-        gLines2.appendChild(ln); hidOutLines.push({el:ln, h, o});
+        gLines2.appendChild(ln); hidOutLines.push({el:ln, halo, h, o});
       });
     }
 
@@ -406,9 +481,10 @@
     const gHid = el("g", {}); net.appendChild(gHid);
     for (let j=0;j<HID;j++){
       const p = hidPos(j);
-      const c = el("circle", {cx:p.x, cy:p.y, r:6.5, fill:"var(--accent)", "fill-opacity":.1, stroke:"var(--neuron)", "stroke-width":1});
-      const t = el("title", {}); t.textContent = "h["+j+"] = 0.000";
-      c.appendChild(t);
+      const c = el("circle", {cx:p.x, cy:p.y, r:6.5, fill:"var(--accent)", "fill-opacity":.1, stroke:"var(--neuron)", "stroke-width":1, class:"clickable"});
+      c.addEventListener("click", () => selectNeuron("hid", j));            // click: open in the weight inspector
+      c.addEventListener("pointerenter", () => showNeuronTip(c, "hid", j)); // hover: mini weight preview
+      c.addEventListener("pointerleave", hideTip);
       gHid.appendChild(c); hidNodes.push(c);
     }
 
@@ -418,7 +494,10 @@
     gOut.appendChild(winRing);
     for (let o=0;o<OUT;o++){
       const oy = OY0 + o*OStep;
-      const c = el("circle", {cx:OX, cy:oy, r:17, fill:"var(--accent)", "fill-opacity":.12, stroke:"var(--neuron)", "stroke-width":1.2});
+      const c = el("circle", {cx:OX, cy:oy, r:17, fill:"var(--accent)", "fill-opacity":.12, stroke:"var(--neuron)", "stroke-width":1.2, class:"clickable"});
+      c.addEventListener("click", () => selectNeuron("out", o));            // click: open in the weight inspector
+      c.addEventListener("pointerenter", () => showNeuronTip(c, "out", o)); // hover: mini weight preview
+      c.addEventListener("pointerleave", hideTip);
       gOut.appendChild(c); outNodes.push(c);
       const lab = el("text", {x:OX, y:oy+5, "text-anchor":"middle", class:"digitLabel", style:"font-size:15px"});
       lab.textContent = String(o); gOut.appendChild(lab); outLabels.push(lab);
@@ -429,43 +508,59 @@
       const pct = el("text", {x:OX+78, y:oy+4, class:"probText"}); pct.textContent="0%";
       gOut.appendChild(pct); outPcts.push(pct);
     }
+
+    // selection ring for the weight inspector (drawn on top, hidden until a neuron is clicked)
+    selRing = el("circle", {cx:0, cy:0, r:12, fill:"none", stroke:"#fff", "stroke-width":2.5, opacity:0, "pointer-events":"none"});
+    net.appendChild(selRing);
   }
 
   // ================= update visuals from current activations =================
   function updateDiagram(hmax){
-    // hidden neurons + their incoming lines
+    // An all-black input is a "dud": there's no signal to propagate, so we do NOT read the
+    // bias-driven activations. Everything reads zero — all nodes red, no prediction.
+    const drawn = grid.some(v => v>0);
+
+    // hidden neurons + their incoming lines — coloured red (weak) -> green (strong)
     for (let j=0;j<HID;j++){
-      const n = Math.min(1, hid[j]/hmax);       // normalized brightness 0..1
+      const n = drawn ? Math.min(1, hid[j]/hmax) : 0;   // dud -> 0 for every neuron
+      const col = actColor(n);                          // red -> green by strength (n=0 is red)
       const node = hidNodes[j];
-      node.setAttribute("fill-opacity", (0.08 + n*0.92).toFixed(3));
+      node.setAttribute("fill", col);
+      node.setAttribute("fill-opacity", drawn ? (0.12 + n*0.88).toFixed(3) : "0.55");  // dud: solid-enough red to read clearly
       node.setAttribute("r", (6.5 + n*3).toFixed(2));
       node.setAttribute("stroke-opacity", (0.4 + n*0.6).toFixed(2));
-      node.firstChild.textContent = "h["+j+"] = "+hid[j].toFixed(3);
+      const lw = 0.6 + n*1.4;
+      hidInLines[j].setAttribute("stroke", col);
       hidInLines[j].setAttribute("stroke-opacity", (0.03 + n*0.5).toFixed(3));
-      hidInLines[j].setAttribute("stroke-width", (0.6 + n*1.4).toFixed(2));
+      hidInLines[j].setAttribute("stroke-width", lw.toFixed(2));
+      // white outline for the strongest signals (over the 90% threshold)
+      hidInHalo[j].setAttribute("stroke-opacity", (drawn && n > STRONG) ? 0.9 : 0);
+      hidInHalo[j].setAttribute("stroke-width", (lw + 1.8).toFixed(2));
     }
     // output nodes
     let win = 0, wp = 0;
-    for (let o=0;o<OUT;o++){ if (out[o]>wp){ wp=out[o]; win=o; } }
+    if (drawn) for (let o=0;o<OUT;o++){ if (out[o]>wp){ wp=out[o]; win=o; } }
     for (let o=0;o<OUT;o++){
-      const p = out[o];
-      const norm = wp>0 ? p/wp : 0;
-      outNodes[o].setAttribute("fill-opacity", (0.1 + norm*0.9).toFixed(3));
-      outNodes[o].setAttribute("fill", o===win ? "var(--amber)" : "var(--accent)");
-      outLabels[o].setAttribute("fill", (o===win || norm>0.6) ? "#05070c" : "var(--ink)");
+      const p = drawn ? out[o] : 0;
+      const norm = (drawn && wp>0) ? p/wp : 0;
+      const isWin = drawn && o===win;
+      outNodes[o].setAttribute("fill-opacity", drawn ? (0.1 + norm*0.9).toFixed(3) : "0.55");
+      outNodes[o].setAttribute("fill", !drawn ? actColor(0) : (isWin ? "var(--amber)" : "var(--accent)"));
+      outLabels[o].setAttribute("fill", (isWin || norm>0.6) ? "#05070c" : "var(--ink)");
       outBars[o].setAttribute("width", (p*44).toFixed(1));
-      outBars[o].setAttribute("fill", o===win ? "var(--amber)" : "var(--accent)");
-      outPcts[o].textContent = Math.round(p*100)+"%";
+      outBars[o].setAttribute("fill", isWin ? "var(--amber)" : "var(--accent)");
+      outPcts[o].textContent = drawn ? Math.round(p*100)+"%" : "—";
     }
     // hidden->output line glow = incoming-hidden strength × output prob
     for (const L of hidOutLines){
-      const s = Math.min(1, hid[L.h]/hmax) * (out[L.o]/(wp||1));
+      const s = drawn ? Math.min(1, hid[L.h]/hmax) * (out[L.o]/(wp||1)) : 0;
       L.el.setAttribute("stroke-opacity", (0.03 + s*0.55).toFixed(3));
-      L.el.setAttribute("stroke", L.o===win ? "var(--amber)" : "var(--accent)");
+      L.el.setAttribute("stroke", (drawn && L.o===win) ? "var(--amber)" : actColor(s));
+      // white outline for the strongest signals (over the 90% threshold)
+      L.halo.setAttribute("stroke-opacity", (drawn && s > STRONG) ? 0.9 : 0);
     }
     // winner ring + readout
     winRing.setAttribute("cy", OY0 + win*OStep);
-    const drawn = grid.some(v => v>0);
     winRing.setAttribute("opacity", drawn ? 1 : 0);
     document.getElementById("predNum").textContent = drawn ? String(win) : "–";
     document.getElementById("predConf").textContent = drawn
@@ -550,7 +645,7 @@
 
   function clearPad(){ grid.fill(0); hint.style.opacity = 1; renderPad(); recompute(); }
   document.getElementById("clear").addEventListener("click", clearPad);
-  document.getElementById("reinit").addEventListener("click", () => { seed = (Math.random()*1e9)|0; initWeights(); recompute(); });
+  document.getElementById("reinit").addEventListener("click", () => { seed = (Math.random()*1e9)|0; initWeights(); recompute(); renderInspector(); });  // weights changed → refresh the open weight map
   window.addEventListener("keydown", e => { if (e.key === "Escape") clearPad(); });
 
   // faint 28-grid overlay on the pad
@@ -575,6 +670,110 @@
     recompute();                       // re-run forward + redraw so the loss readout reflects the new label
   });
 
+  // ================= weight inspector: show a neuron's weights as a red/green heatmap =================
+  const wmap = document.getElementById("wmap");
+  const ictx = wmap.getContext("2d");
+  const inspTitle = document.getElementById("inspTitle");
+  const inspBias = document.getElementById("inspBias");
+
+  // signed weight -> colour. Negative = red, ~0 = dark neutral, positive = green.
+  function weightColor(t){                    // t normalized to [-1, 1]
+    const base = [24, 28, 26];                // dark neutral at zero
+    const tgt = t >= 0 ? [46, 224, 138] : [235, 60, 60];   // green for +, red for −
+    const a = Math.abs(t);
+    return [ base[0]+(tgt[0]-base[0])*a, base[1]+(tgt[1]-base[1])*a, base[2]+(tgt[2]-base[2])*a ];
+  }
+
+  // paint a w*h grid of weights onto any canvas context, scaled up, aspect preserved & centered
+  function paintWeights(ctx, cw, ch, values, w, h){
+    const src = document.createElement("canvas"); src.width = w; src.height = h;
+    const sctx = src.getContext("2d"); const img = sctx.createImageData(w, h);
+    let maxAbs = 1e-9;                          // normalize by the largest magnitude so faint weights still show
+    for (let i=0;i<values.length;i++) maxAbs = Math.max(maxAbs, Math.abs(values[i]));
+    for (let i=0;i<values.length;i++){
+      const c = weightColor(values[i]/maxAbs); const p = i*4;
+      img.data[p]=c[0]; img.data[p+1]=c[1]; img.data[p+2]=c[2]; img.data[p+3]=255;
+    }
+    sctx.putImageData(img, 0, 0);
+    ctx.fillStyle = "#0b0f17"; ctx.fillRect(0, 0, cw, ch);
+    ctx.imageSmoothingEnabled = false;
+    const scale = Math.min(cw/w, ch/h), dw = w*scale, dh = h*scale;
+    ctx.drawImage(src, (cw-dw)/2, (ch-dh)/2, dw, dh);   // center it
+  }
+  function drawWeights(values, w, h){ paintWeights(ictx, 224, 224, values, w, h); }   // full-size, into the inspector canvas
+
+  function selectNeuron(type, idx){ sel = {type, idx}; renderInspector(); }
+
+  function renderInspector(){
+    if (sel === null){
+      selRing.setAttribute("opacity", 0);
+      ictx.fillStyle = "#0b0f17"; ictx.fillRect(0, 0, 224, 224);
+      inspTitle.textContent = "Click a neuron to see its weights";
+      inspBias.textContent = "";
+      return;
+    }
+    if (sel.type === "hid"){
+      const j = sel.idx;
+      drawWeights(W1.subarray(j*IN, (j+1)*IN), 28, 28);            // 784 weights = 28×28 receptive field
+      inspTitle.textContent = "Hidden neuron  h[" + j + "]";
+      inspBias.innerHTML = "<span class='k'>bias</span> " + b1[j].toFixed(3) + "   ·   784 weights (28×28)";
+      const p = hidPos(j);
+      selRing.setAttribute("cx", p.x); selRing.setAttribute("cy", p.y); selRing.setAttribute("r", 12);
+    } else {
+      const o = sel.idx;
+      drawWeights(W2.subarray(o*HID, (o+1)*HID), 8, 16);           // 128 weights = 8×16, matching the hidden grid
+      inspTitle.textContent = "Output digit  " + o;
+      inspBias.innerHTML = "<span class='k'>bias</span> " + b2[o].toFixed(3) + "   ·   128 weights (8×16 over the hidden layer)";
+      selRing.setAttribute("cx", OX); selRing.setAttribute("cy", OY0 + o*OStep); selRing.setAttribute("r", 22);
+    }
+    selRing.setAttribute("opacity", 1);
+  }
+
+  // ================= hover tooltips (plain-language reminders on [data-tip] elements) =================
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.setAttribute("role", "tooltip");
+  document.body.appendChild(tip);
+  let tipTarget = null;
+  function placeTip(elm){
+    const r = elm.getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = r.left + r.width/2 - tw/2;
+    let y = r.top - th - 10;                                  // prefer above the element
+    x = Math.max(8, Math.min(x, window.innerWidth - tw - 8)); // keep inside the viewport
+    if (y < 8) y = r.bottom + 10;                             // flip below if there's no room above
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function showTip(elm){ tip.textContent = elm.getAttribute("data-tip"); tip.classList.add("show"); placeTip(elm); }
+  function hideTip(){ tip.classList.remove("show"); tipTarget = null; }
+  document.addEventListener("pointerover", (e) => { const elm = e.target.closest("[data-tip]"); if (elm){ tipTarget = elm; showTip(elm); } });
+  document.addEventListener("pointerout", (e) => { const elm = e.target.closest("[data-tip]"); if (elm && !elm.contains(e.relatedTarget)) hideTip(); });
+  document.addEventListener("focusin", (e) => { const elm = e.target.closest("[data-tip]"); if (elm){ tipTarget = elm; showTip(elm); } });
+  document.addEventListener("focusout", hideTip);
+  window.addEventListener("scroll", () => { if (tipTarget) placeTip(tipTarget); }, true);
+
+  // rich hover tooltip for a neuron: a mini weight heatmap + its bias and current activation
+  function showNeuronTip(elm, type, idx){
+    const drawn = grid.some(v => v>0);
+    let values, w, h, label, sub, bias, act, actKey;
+    if (type === "hid"){
+      values = W1.subarray(idx*IN, (idx+1)*IN); w = 28; h = 28;
+      label = "h[" + idx + "]"; sub = "784 weights · 28×28"; bias = b1[idx]; act = drawn ? hid[idx] : 0; actKey = "activation";
+    } else {
+      values = W2.subarray(idx*HID, (idx+1)*HID); w = 8; h = 16;
+      label = "digit " + idx; sub = "128 weights · 8×16"; bias = b2[idx]; act = drawn ? out[idx] : 0; actKey = "prob";
+    }
+    const cw = (type === "hid") ? 64 : 32, ch = 64;
+    tip.innerHTML =
+      "<div class='tipRow'><canvas class='tipThumb' width='" + cw + "' height='" + ch + "'></canvas>" +
+      "<div class='tipMeta'><b>" + label + "</b>" +
+      "<span>" + sub + "</span>" +
+      "<span>bias " + (bias >= 0 ? "+" : "") + bias.toFixed(3) + "</span>" +
+      "<span>" + actKey + " " + act.toFixed(3) + "</span>" +
+      "</div></div>";
+    paintWeights(tip.querySelector(".tipThumb").getContext("2d"), cw, ch, values, w, h);
+    tipTarget = elm; tip.classList.add("show"); placeTip(elm);
+  }
+
   // ================= theme toggle =================
   const root = document.documentElement;
   document.getElementById("themeToggle").addEventListener("click", () => {
@@ -588,5 +787,6 @@
   buildDiagram();
   renderPad();
   recompute();
+  renderInspector();      // set the inspector's default empty state
 })();
 </script>
