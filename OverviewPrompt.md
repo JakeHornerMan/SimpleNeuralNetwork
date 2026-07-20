@@ -43,6 +43,9 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 - **Output colours:** the winning digit (argmax) is green with a white ring; all losing digits are red.
 - **Hover weight preview:** hovering any neuron pops a tooltip with a mini version of that same weight heatmap plus its bias and current activation — a quick scan without opening the full inspector.
 - **Dud handling:** an all-black input is treated as no signal — activations are forced to zero (all nodes red), no prediction — rather than reading the bias-driven values.
+- **Load trained weights:** a button pours the real weights from `model_weights.pth` (base64-embedded in the page, ~530 KB) into the JS forward pass — no retraining, just the precomputed numbers. Verified: the browser math matches PyTorch on 200/200 test images (~99%). A tooltip on the button describes the training data; toggling back gives random weights. Messaging switches between "untrained" and "trained".
+- **"How this network learned" card:** a section (styled like the inspector) with the training facts — 60k images, 5 epochs, batch 64, Adam lr 0.001 — plus a per-epoch accuracy bar chart (90.6% → 98.0%).
+- **MNIST-style input normalization:** the drawing is cropped to the ink, scaled to a 20px box, and centred by centre-of-mass before the forward pass — otherwise trained-mode predictions are garbage on freehand strokes (verified: a raw off-centre bar predicts `6`, the same bar preprocessed predicts `1` @ 99.96%). A "what the network sees" preview shows the normalized 28×28 the net actually reads.
 - Honestly labeled as **untrained** — predictions are random because no training has happened yet. Live at the Artifact URL; the file is version-controlled in the repo.
 
 ### 📄 Documentation
@@ -50,10 +53,7 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 
 ---
 
-## Not built yet
-
 - **Step 4 — Evaluation:** load `model_weights.pth` and measure accuracy on the held-out 10k test set (checks it generalises, not just memorises).
-- **Wiring trained weights into `nn_visualizer.html`** so it becomes a real digit classifier instead of a random one — the hidden-neuron weight maps should now show recognisable stroke/blob patterns.
 
 ---
 
