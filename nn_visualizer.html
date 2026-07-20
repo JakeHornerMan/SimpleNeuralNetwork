@@ -1,0 +1,592 @@
+<title>SimpleNN — Forward-Pass Visualizer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    /* light — cool paper, signal green, ledger amber */
+    --bg: #e9edf4;
+    --panel: #ffffff;
+    --panel-2: #f4f6fb;
+    --ink: #101623;
+    --muted: #5a6473;
+    --line: #d5dbe6;
+    --accent: #12924e;
+    --accent-ink: #0f7d42;
+    --amber: #c9760a;
+    --neuron: #cad2df;
+    --shadow: 0 1px 2px rgba(16,22,35,.06), 0 12px 30px rgba(16,22,35,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #080c14;
+      --panel: #0f1522;
+      --panel-2: #0b111c;
+      --ink: #e8eef7;
+      --muted: #8a96a9;
+      --line: #1d2634;
+      --accent: #34e08a;
+      --accent-ink: #86efb5;
+      --amber: #f5b53f;
+      --neuron: #283244;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #e9edf4; --panel: #ffffff; --panel-2: #f4f6fb; --ink: #101623;
+    --muted: #5a6473; --line: #d5dbe6; --accent: #12924e; --accent-ink: #0f7d42;
+    --amber: #c9760a; --neuron: #cad2df;
+    --shadow: 0 1px 2px rgba(16,22,35,.06), 0 12px 30px rgba(16,22,35,.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #080c14; --panel: #0f1522; --panel-2: #0b111c; --ink: #e8eef7;
+    --muted: #8a96a9; --line: #1d2634; --accent: #34e08a; --accent-ink: #86efb5;
+    --amber: #f5b53f; --neuron: #283244;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px rgba(0,0,0,.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 78% -10%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: clamp(20px, 4vw, 44px) 20px 64px; }
+
+  header { margin-bottom: 26px; }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent-ink); margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(26px, 4.4vw, 40px); line-height: 1.08; margin: 0 0 10px;
+    letter-spacing: -.02em; text-wrap: balance; font-weight: 680;
+  }
+  h1 .dim { color: var(--muted); font-weight: 480; }
+  .lede { margin: 0; color: var(--muted); max-width: 62ch; font-size: 15.5px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: var(--shadow);
+  }
+
+  .stage {
+    display: grid; grid-template-columns: 300px 1fr; gap: 0;
+    overflow: hidden; margin-top: 26px;
+  }
+  @media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+
+  .inputPane {
+    padding: 22px; border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  @media (max-width: 860px) { .inputPane { border-right: none; border-bottom: 1px solid var(--line); } }
+
+  .paneLabel {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .paneLabel b { color: var(--ink); font-weight: 640; letter-spacing: .04em; }
+
+  .canvasFrame {
+    position: relative; aspect-ratio: 1; width: 100%;
+    border-radius: 12px; overflow: hidden;
+    background: #05070c;
+    border: 1px solid var(--line);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+  }
+  #pad { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; image-rendering: pixelated; }
+  .canvasHint {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: #566072; font-size: 13px; pointer-events: none;
+    font-family: ui-monospace, monospace; letter-spacing: .04em; transition: opacity .25s;
+  }
+  .gridlines { position: absolute; inset: 0; pointer-events: none; opacity: .5; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  button.btn {
+    font: inherit; font-size: 13px; font-weight: 560;
+    color: var(--ink); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 9px;
+    padding: 8px 13px; cursor: pointer; transition: border-color .15s, background .15s, transform .05s;
+  }
+  button.btn:hover { border-color: color-mix(in oklab, var(--accent) 55%, var(--line)); }
+  button.btn:active { transform: translateY(1px); }
+  button.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn .k { color: var(--muted); font-family: ui-monospace, monospace; font-size: 11px; }
+
+  .diagramPane { padding: 8px 10px 4px; position: relative; min-height: 380px; }
+  svg.net { display: block; width: 100%; height: auto; }
+  .flowlabel {
+    font-family: ui-monospace, monospace; font-size: 11px; fill: var(--muted);
+    letter-spacing: .1em; text-transform: uppercase;
+  }
+  .stageTag { font-family: ui-monospace, monospace; font-size: 12px; fill: var(--ink); font-weight: 600; }
+  .digitLabel { font-family: ui-monospace, monospace; font-weight: 640; fill: var(--ink); }
+  .probText { font-family: ui-monospace, monospace; font-size: 12px; fill: var(--muted); }
+
+  .readout {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 16px 22px; border-top: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .predChip {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .predNum {
+    font-family: ui-monospace, monospace; font-weight: 700; font-size: 30px;
+    width: 52px; height: 52px; display: grid; place-items: center;
+    border-radius: 12px; color: #05070c;
+    background: var(--amber); box-shadow: 0 0 0 1px color-mix(in oklab, var(--amber) 60%, transparent), 0 8px 22px color-mix(in oklab, var(--amber) 35%, transparent);
+  }
+  .predMeta small { display: block; color: var(--muted); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; font-family: ui-monospace, monospace; }
+  .predMeta span { font-weight: 600; font-size: 15px; }
+  .warn {
+    margin-left: auto; display: flex; align-items: center; gap: 9px;
+    font-size: 12.5px; color: var(--muted); max-width: 40ch;
+    border-left: 2px solid var(--amber); padding-left: 12px;
+  }
+  .warn b { color: var(--ink); font-weight: 620; }
+
+  .correction { display: flex; flex-direction: column; gap: 8px; }
+  .correction > small {
+    font-family: ui-monospace, monospace; font-size: 11.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .digitPicker { display: flex; gap: 6px; flex-wrap: wrap; }
+  button.digit {
+    font: inherit; font-family: ui-monospace, monospace; font-weight: 640; font-size: 15px;
+    width: 36px; height: 36px; display: grid; place-items: center;
+    color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 9px; cursor: pointer;
+    transition: border-color .12s, background .12s, color .12s, transform .05s;
+  }
+  button.digit:hover { border-color: color-mix(in oklab, var(--accent) 55%, var(--line)); }
+  button.digit:active { transform: translateY(1px); }
+  button.digit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.digit[aria-pressed="true"] {
+    background: var(--accent); color: #05070c; border-color: var(--accent);
+    box-shadow: 0 6px 16px color-mix(in oklab, var(--accent) 34%, transparent);
+  }
+  .lossBox { display: flex; flex-direction: column; gap: 6px; min-width: 210px; margin-top: 2px; }
+  .lossRow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .lossKey {
+    font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .lossVal {
+    font-family: ui-monospace, monospace; font-weight: 680; font-size: 20px;
+    color: var(--ink); font-variant-numeric: tabular-nums; transition: color .15s;
+  }
+  .lossMeter {
+    position: relative; height: 8px; border-radius: 5px;
+    background: var(--panel); border: 1px solid var(--line); overflow: hidden;
+  }
+  .lossFill {
+    position: absolute; inset: 0 auto 0 0; width: 0%;
+    background: var(--accent); border-radius: 5px 0 0 5px;
+    transition: width .18s ease, background .18s ease;
+  }
+  .lossBaseline {
+    position: absolute; top: -2px; bottom: -2px; left: 50%; width: 1.5px;
+    background: var(--muted); opacity: .55;
+  }
+  .lossHint { font-size: 12px; color: var(--muted); }
+
+  .legend {
+    margin-top: 22px; display: flex; gap: 22px; flex-wrap: wrap;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .legend .row { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 26px; height: 12px; border-radius: 3px; }
+
+  .themeToggle {
+    position: fixed; top: 14px; right: 14px; z-index: 5;
+    font: inherit; font-size: 12px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+  .themeToggle:hover { color: var(--ink); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes ring { 0%,100% { stroke-opacity: .9; } 50% { stroke-opacity: .35; } }
+    .winRing { animation: ring 2s ease-in-out infinite; }
+  }
+</style>
+
+<button class="themeToggle" id="themeToggle" type="button" aria-label="Toggle theme">theme</button>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">SimpleNN · 784 → 128 → 10</p>
+    <h1>Watch a digit flow through the network <span class="dim">— one forward pass, drawn live.</span></h1>
+    <p class="lede">Draw a digit on the left. The 784 input pixels are abstracted into that single image; each circle to the right is a real neuron. Brightness is its activation, computed by the actual model math running in your browser.</p>
+  </header>
+
+  <div class="card stage">
+    <div class="inputPane">
+      <div class="paneLabel"><span>Input</span> <b>28 × 28 = 784</b></div>
+      <div class="canvasFrame">
+        <canvas id="pad" width="280" height="280"></canvas>
+        <svg class="gridlines" id="gridlines" viewBox="0 0 280 280" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="canvasHint" id="hint">draw a digit ✎</div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="clear" type="button">Clear <span class="k">esc</span></button>
+        <button class="btn" id="reinit" type="button">Re-init weights</button>
+      </div>
+      <p style="margin:0;color:var(--muted);font-size:12.5px">Every pixel value (0–1) feeds all 128 hidden neurons. Lines glow with the signal each neuron receives.</p>
+    </div>
+
+    <div class="diagramPane">
+      <svg class="net" id="net" viewBox="0 0 968 560" role="img" aria-label="Neural network diagram"></svg>
+    </div>
+
+    <div class="readout" style="grid-column:1 / -1">
+      <div class="predChip">
+        <div class="predNum" id="predNum">–</div>
+        <div class="predMeta">
+          <small>Predicted digit</small>
+          <span id="predConf">draw to begin</span>
+        </div>
+      </div>
+      <div class="correction">
+        <small>Actual digit</small>
+        <div class="digitPicker" id="digitPicker" role="group" aria-label="Select the correct digit">
+          <button class="digit" type="button" data-d="0">0</button>
+          <button class="digit" type="button" data-d="1">1</button>
+          <button class="digit" type="button" data-d="2">2</button>
+          <button class="digit" type="button" data-d="3">3</button>
+          <button class="digit" type="button" data-d="4">4</button>
+          <button class="digit" type="button" data-d="5">5</button>
+          <button class="digit" type="button" data-d="6">6</button>
+          <button class="digit" type="button" data-d="7">7</button>
+          <button class="digit" type="button" data-d="8">8</button>
+          <button class="digit" type="button" data-d="9">9</button>
+        </div>
+        <div class="lossBox">
+          <div class="lossRow">
+            <span class="lossKey">Cross-entropy loss</span>
+            <span class="lossVal" id="lossVal">—</span>
+          </div>
+          <div class="lossMeter" title="0 (perfect) → 4.6 (true class at 1%). Tick = ln(10) ≈ 2.30 random-guess baseline.">
+            <div class="lossFill" id="lossFill"></div>
+            <span class="lossBaseline"></span>
+          </div>
+          <span class="lossHint" id="lossHint">pick the true label to measure how wrong the guess is</span>
+        </div>
+      </div>
+      <div class="warn">
+        <span><b>Untrained network.</b> Weights are random, so the guess is essentially a coin-flip — the point here is the <i>flow</i>, not the accuracy. Add the training loop next and these lights start meaning something.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="row"><span class="swatch" style="background:var(--neuron)"></span> idle neuron</div>
+    <div class="row"><span class="swatch" style="background:linear-gradient(90deg,var(--neuron),var(--accent))"></span> activation strength</div>
+    <div class="row"><span class="swatch" style="background:var(--amber)"></span> winning output (argmax)</div>
+    <div class="row" style="color:var(--muted)">Hover any hidden neuron for its index &amp; value.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const SVGNS = "http://www.w3.org/2000/svg";
+
+  // ---------- deterministic RNG (mulberry32) so weights are stable per seed ----------
+  function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+  // ---------- model params ----------
+  const IN = 784, HID = 128, OUT = 10;
+  let W1, b1, W2, b2;          // fc1: HIDxIN, fc2: OUTxHID  (PyTorch nn.Linear default init)
+  let seed = 12345;
+
+  function initWeights(){
+    const rnd = mulberry32(seed);
+    const k1 = 1/Math.sqrt(IN), k2 = 1/Math.sqrt(HID);   // uniform(-k, k), k = 1/sqrt(fan_in)
+    W1 = new Float32Array(HID*IN); b1 = new Float32Array(HID);
+    W2 = new Float32Array(OUT*HID); b2 = new Float32Array(OUT);
+    for (let i=0;i<W1.length;i++) W1[i] = (rnd()*2-1)*k1;
+    for (let i=0;i<b1.length;i++) b1[i] = (rnd()*2-1)*k1;
+    for (let i=0;i<W2.length;i++) W2[i] = (rnd()*2-1)*k2;
+    for (let i=0;i<b2.length;i++) b2[i] = (rnd()*2-1)*k2;
+  }
+
+  // ---------- input state ----------
+  const grid = new Float32Array(IN);   // 28x28 pixel values 0..1
+  const hid = new Float32Array(HID);
+  const out = new Float32Array(OUT);
+  let trueLabel = null;                // the digit picked in the "Actual digit" selector (null = none picked)
+
+  function forward(){
+    // h = ReLU(W1 x + b1)
+    let hmax = 1e-6;
+    for (let j=0;j<HID;j++){
+      let s = b1[j], base = j*IN;
+      for (let i=0;i<IN;i++){ const x = grid[i]; if (x!==0) s += W1[base+i]*x; }
+      const v = s>0 ? s : 0;
+      hid[j] = v; if (v>hmax) hmax = v;
+    }
+    // logits = W2 h + b2, then softmax
+    let lmax = -Infinity;
+    const logits = new Float32Array(OUT);
+    for (let o=0;o<OUT;o++){
+      let s = b2[o], base = o*HID;
+      for (let j=0;j<HID;j++) s += W2[base+j]*hid[j];
+      logits[o] = s; if (s>lmax) lmax = s;
+    }
+    let sum = 0;
+    for (let o=0;o<OUT;o++){ const e = Math.exp(logits[o]-lmax); out[o]=e; sum+=e; }
+    for (let o=0;o<OUT;o++) out[o] /= sum;
+    return hmax;
+  }
+
+  // ================= build the SVG diagram once =================
+  const net = document.getElementById("net");
+  const hidNodes = [], hidInLines = [];   // per hidden neuron
+  const outNodes = [], outLabels = [], outBars = [], outPcts = [];
+  const hidOutLines = [];                  // sampled hidden->output lines: {el, h, o}
+  let winRing;
+
+  const PORT = {x:70, y:280};
+  const HBOX = {x0:250, x1:560, y0:52, y1:508, cols:8, rows:16};
+  const OX = 812, OY0 = 78, OStep = 44;
+
+  function hidPos(idx){
+    const c = idx % HBOX.cols, r = (idx / HBOX.cols)|0;
+    const x = HBOX.x0 + (HBOX.cols===1?0:c*(HBOX.x1-HBOX.x0)/(HBOX.cols-1));
+    const y = HBOX.y0 + r*(HBOX.y1-HBOX.y0)/(HBOX.rows-1);
+    return {x,y};
+  }
+  function el(name, attrs){ const e = document.createElementNS(SVGNS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+  function buildDiagram(){
+    net.textContent = "";
+
+    // stage tags
+    net.appendChild(el("text", {x:PORT.x, y:24, "text-anchor":"middle", class:"stageTag"})).textContent = "input";
+    net.appendChild(el("text", {x:(HBOX.x0+HBOX.x1)/2, y:24, "text-anchor":"middle", class:"stageTag"})).textContent = "hidden · 128 · ReLU";
+    net.appendChild(el("text", {x:OX, y:24, "text-anchor":"middle", class:"stageTag"})).textContent = "output · 10";
+
+    // input port -> hidden lines (drawn first, behind nodes)
+    const gLines1 = el("g", {}); net.appendChild(gLines1);
+    for (let j=0;j<HID;j++){
+      const p = hidPos(j);
+      const ln = el("line", {x1:PORT.x+18, y1:PORT.y, x2:p.x, y2:p.y, stroke:"var(--accent)", "stroke-width":.7, "stroke-opacity":.05});
+      gLines1.appendChild(ln); hidInLines.push(ln);
+    }
+
+    // hidden -> output sampled lines (16 per output)
+    const gLines2 = el("g", {}); net.appendChild(gLines2);
+    const rnd = mulberry32(999);
+    for (let o=0;o<OUT;o++){
+      const oy = OY0 + o*OStep;
+      const picks = new Set();
+      while (picks.size < 16) picks.add((rnd()*HID)|0);
+      picks.forEach(h => {
+        const p = hidPos(h);
+        const ln = el("line", {x1:p.x, y1:p.y, x2:OX-18, y2:oy, stroke:"var(--accent)", "stroke-width":.7, "stroke-opacity":.04});
+        gLines2.appendChild(ln); hidOutLines.push({el:ln, h, o});
+      });
+    }
+
+    // input port node
+    net.appendChild(el("circle", {cx:PORT.x, cy:PORT.y, r:20, fill:"var(--panel-2)", stroke:"var(--line)", "stroke-width":1.5}));
+    net.appendChild(el("text", {x:PORT.x, y:PORT.y+4, "text-anchor":"middle", class:"flowlabel", style:"font-size:12px;fill:var(--ink)"})).textContent = "784";
+    net.appendChild(el("text", {x:PORT.x, y:PORT.y+40, "text-anchor":"middle", class:"flowlabel"})).textContent = "pixels";
+
+    // hidden nodes
+    const gHid = el("g", {}); net.appendChild(gHid);
+    for (let j=0;j<HID;j++){
+      const p = hidPos(j);
+      const c = el("circle", {cx:p.x, cy:p.y, r:6.5, fill:"var(--accent)", "fill-opacity":.1, stroke:"var(--neuron)", "stroke-width":1});
+      const t = el("title", {}); t.textContent = "h["+j+"] = 0.000";
+      c.appendChild(t);
+      gHid.appendChild(c); hidNodes.push(c);
+    }
+
+    // output nodes + labels + bars
+    const gOut = el("g", {}); net.appendChild(gOut);
+    winRing = el("circle", {cx:OX, cy:OY0, r:22, fill:"none", stroke:"var(--amber)", "stroke-width":2.5, class:"winRing", opacity:0});
+    gOut.appendChild(winRing);
+    for (let o=0;o<OUT;o++){
+      const oy = OY0 + o*OStep;
+      const c = el("circle", {cx:OX, cy:oy, r:17, fill:"var(--accent)", "fill-opacity":.12, stroke:"var(--neuron)", "stroke-width":1.2});
+      gOut.appendChild(c); outNodes.push(c);
+      const lab = el("text", {x:OX, y:oy+5, "text-anchor":"middle", class:"digitLabel", style:"font-size:15px"});
+      lab.textContent = String(o); gOut.appendChild(lab); outLabels.push(lab);
+      // probability bar to the right
+      gOut.appendChild(el("rect", {x:OX+26, y:oy-5, width:44, height:10, rx:3, fill:"var(--line)", "fill-opacity":.5}));
+      const bar = el("rect", {x:OX+26, y:oy-5, width:0, height:10, rx:3, fill:"var(--accent)"});
+      gOut.appendChild(bar); outBars.push(bar);
+      const pct = el("text", {x:OX+78, y:oy+4, class:"probText"}); pct.textContent="0%";
+      gOut.appendChild(pct); outPcts.push(pct);
+    }
+  }
+
+  // ================= update visuals from current activations =================
+  function updateDiagram(hmax){
+    // hidden neurons + their incoming lines
+    for (let j=0;j<HID;j++){
+      const n = Math.min(1, hid[j]/hmax);       // normalized brightness 0..1
+      const node = hidNodes[j];
+      node.setAttribute("fill-opacity", (0.08 + n*0.92).toFixed(3));
+      node.setAttribute("r", (6.5 + n*3).toFixed(2));
+      node.setAttribute("stroke-opacity", (0.4 + n*0.6).toFixed(2));
+      node.firstChild.textContent = "h["+j+"] = "+hid[j].toFixed(3);
+      hidInLines[j].setAttribute("stroke-opacity", (0.03 + n*0.5).toFixed(3));
+      hidInLines[j].setAttribute("stroke-width", (0.6 + n*1.4).toFixed(2));
+    }
+    // output nodes
+    let win = 0, wp = 0;
+    for (let o=0;o<OUT;o++){ if (out[o]>wp){ wp=out[o]; win=o; } }
+    for (let o=0;o<OUT;o++){
+      const p = out[o];
+      const norm = wp>0 ? p/wp : 0;
+      outNodes[o].setAttribute("fill-opacity", (0.1 + norm*0.9).toFixed(3));
+      outNodes[o].setAttribute("fill", o===win ? "var(--amber)" : "var(--accent)");
+      outLabels[o].setAttribute("fill", (o===win || norm>0.6) ? "#05070c" : "var(--ink)");
+      outBars[o].setAttribute("width", (p*44).toFixed(1));
+      outBars[o].setAttribute("fill", o===win ? "var(--amber)" : "var(--accent)");
+      outPcts[o].textContent = Math.round(p*100)+"%";
+    }
+    // hidden->output line glow = incoming-hidden strength × output prob
+    for (const L of hidOutLines){
+      const s = Math.min(1, hid[L.h]/hmax) * (out[L.o]/(wp||1));
+      L.el.setAttribute("stroke-opacity", (0.03 + s*0.55).toFixed(3));
+      L.el.setAttribute("stroke", L.o===win ? "var(--amber)" : "var(--accent)");
+    }
+    // winner ring + readout
+    winRing.setAttribute("cy", OY0 + win*OStep);
+    const drawn = grid.some(v => v>0);
+    winRing.setAttribute("opacity", drawn ? 1 : 0);
+    document.getElementById("predNum").textContent = drawn ? String(win) : "–";
+    document.getElementById("predConf").textContent = drawn
+      ? (Math.round(wp*100)+"% confidence  (random weights)")
+      : "draw to begin";
+    updateLoss(win, drawn);          // keep the cross-entropy readout in sync with the current probabilities
+  }
+
+  // ---- cross-entropy loss for the picked label:  loss = -ln( prob of true digit ) ----
+  // This is exactly what nn.CrossEntropyLoss computes for one sample; out[] is already softmax'd in forward().
+  const lossVal = document.getElementById("lossVal");
+  const lossFill = document.getElementById("lossFill");
+  const lossHint = document.getElementById("lossHint");
+  const LOSS_MAX = 4.60;             // meter's full scale: true class at ~1% probability (-ln(0.01))
+  function updateLoss(win, drawn){
+    if (trueLabel === null){
+      lossVal.textContent = "—"; lossVal.style.color = "var(--ink)";
+      lossFill.style.width = "0%";
+      lossHint.textContent = "pick the true label to measure how wrong the guess is";
+      return;
+    }
+    if (!drawn){
+      lossVal.textContent = "—"; lossVal.style.color = "var(--ink)";
+      lossFill.style.width = "0%";
+      lossHint.textContent = "draw a digit to score it against “" + trueLabel + "”";
+      return;
+    }
+    const p = Math.max(out[trueLabel], 1e-12);   // probability the net assigned to the correct digit
+    const loss = -Math.log(p);                   // small when p is high (right), large when p is low (wrong)
+    lossVal.textContent = loss.toFixed(3);
+    lossFill.style.width = Math.min(100, loss/LOSS_MAX*100).toFixed(1) + "%";
+
+    const correct = (win === trueLabel);
+    let color, msg;
+    if (correct)        { color = "var(--accent)"; msg = "guess matches the label — loss is low"; }
+    else if (loss > 3)  { color = "var(--amber)";  msg = "confident and wrong — big penalty"; }
+    else                { color = "var(--muted)";  msg = "≈ ln(10) ≈ 2.30, random-guess territory"; }
+    lossVal.style.color = color;
+    lossFill.style.background = color;
+    lossHint.textContent = msg;
+  }
+
+  function recompute(){ const hmax = forward(); updateDiagram(hmax); }
+
+  // ================= drawing pad =================
+  const pad = document.getElementById("pad");
+  const ctx = pad.getContext("2d");
+  const off = document.createElement("canvas"); off.width = 28; off.height = 28;
+  const octx = off.getContext("2d");
+  const hint = document.getElementById("hint");
+
+  function renderPad(){
+    const img = octx.createImageData(28,28);
+    for (let i=0;i<IN;i++){ const v = Math.round(grid[i]*255); const p=i*4; img.data[p]=img.data[p+1]=img.data[p+2]=v; img.data[p+3]=255; }
+    octx.putImageData(img,0,0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0,0,280,280);
+    ctx.drawImage(off,0,0,280,280);
+  }
+
+  function paint(clientX, clientY){
+    const rect = pad.getBoundingClientRect();
+    const gx = (clientX-rect.left)/rect.width*28;
+    const gy = (clientY-rect.top)/rect.height*28;
+    for (let dy=-2; dy<=2; dy++) for (let dx=-2; dx<=2; dx++){
+      const x = Math.floor(gx)+dx, y = Math.floor(gy)+dy;
+      if (x<0||y<0||x>=28||y>=28) continue;
+      const d = Math.hypot((x+0.5)-gx, (y+0.5)-gy);
+      const v = Math.max(0, 1 - d/2.3);
+      const idx = y*28+x;
+      if (v>grid[idx]) grid[idx] = Math.min(1, v);
+    }
+  }
+
+  let drawing = false;
+  function pointerDown(e){ drawing = true; hint.style.opacity = 0; pad.setPointerCapture(e.pointerId); paint(e.clientX,e.clientY); renderPad(); recompute(); }
+  function pointerMove(e){ if(!drawing) return; paint(e.clientX,e.clientY); renderPad(); recompute(); }
+  function pointerUp(){ drawing = false; }
+  pad.addEventListener("pointerdown", pointerDown);
+  pad.addEventListener("pointermove", pointerMove);
+  window.addEventListener("pointerup", pointerUp);
+
+  function clearPad(){ grid.fill(0); hint.style.opacity = 1; renderPad(); recompute(); }
+  document.getElementById("clear").addEventListener("click", clearPad);
+  document.getElementById("reinit").addEventListener("click", () => { seed = (Math.random()*1e9)|0; initWeights(); recompute(); });
+  window.addEventListener("keydown", e => { if (e.key === "Escape") clearPad(); });
+
+  // faint 28-grid overlay on the pad
+  (function gridlines(){
+    const g = document.getElementById("gridlines");
+    for (let i=1;i<28;i+=1){ const p=i/28*280;
+      const step = (i%7===0);
+      g.appendChild(el("line",{x1:p,y1:0,x2:p,y2:280,stroke:"#ffffff","stroke-opacity":step?0.08:0.03,"stroke-width":step?0.8:0.5}));
+      g.appendChild(el("line",{x1:0,y1:p,x2:280,y2:p,stroke:"#ffffff","stroke-opacity":step?0.08:0.03,"stroke-width":step?0.8:0.5}));
+    }
+  })();
+
+  // ================= actual-digit picker → sets the true label the loss is measured against =================
+  const picker = document.getElementById("digitPicker");
+  picker.addEventListener("click", (e) => {
+    const btn = e.target.closest("button.digit");
+    if (!btn) return;
+    const already = btn.getAttribute("aria-pressed") === "true";
+    picker.querySelectorAll("button.digit").forEach(b => b.setAttribute("aria-pressed", "false"));
+    if (already) { trueLabel = null; btn.setAttribute("aria-pressed", "false"); }  // clicking the active one clears it
+    else { btn.setAttribute("aria-pressed", "true"); trueLabel = +btn.dataset.d; }
+    recompute();                       // re-run forward + redraw so the loss readout reflects the new label
+  });
+
+  // ================= theme toggle =================
+  const root = document.documentElement;
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    const cur = root.getAttribute("data-theme")
+      || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    root.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  });
+
+  // ---------- boot ----------
+  initWeights();
+  buildDiagram();
+  renderPad();
+  recompute();
+})();
+</script>
