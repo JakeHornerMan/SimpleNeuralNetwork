@@ -209,6 +209,7 @@
     margin-top: 22px; padding: 20px;
     display: grid; grid-template-columns: 224px 1fr; gap: 22px; align-items: start;
   }
+  .inspector[hidden] { display: none; }   /* author rule must beat the display:grid above */
   @media (max-width: 620px) { .inspector { grid-template-columns: 1fr; } }
   .wmap {
     width: 224px; height: 224px; border-radius: 12px;
@@ -337,7 +338,7 @@
     </div>
   </div>
 
-  <div class="card inspector">
+  <div class="card inspector" id="inspector" hidden>
     <canvas id="wmap" width="224" height="224" class="wmap" aria-label="Weight map of the selected neuron"></canvas>
     <div class="inspText">
       <p class="eyebrow" style="margin:0 0 8px">Weight inspector</p>
@@ -355,8 +356,8 @@
   <div class="legend">
     <div class="row"><span class="swatch" style="background:linear-gradient(90deg,hsl(0,78%,46%),hsl(65,78%,46%),hsl(130,78%,46%))"></span> activation strength (weak → strong)</div>
     <div class="row"><span class="swatch" style="background:hsl(130,78%,46%);box-shadow:0 0 0 2px #fff"></span> strongest signals (&gt;90%, white outline)</div>
-    <div class="row"><span class="swatch" style="background:var(--amber)"></span> winning output (argmax)</div>
-    <div class="row" style="color:var(--muted)">Hover any neuron for a mini weight preview · click it to open the full inspector.</div>
+    <div class="row"><span class="swatch" style="background:hsl(130,78%,46%);box-shadow:0 0 0 2px #fff"></span> winning output — green + white ring (losing outputs are red)</div>
+    <div class="row" style="color:var(--muted)">Hover any neuron for a mini weight preview · click to open the full inspector, click again to close.</div>
   </div>
 </div>
 
@@ -490,7 +491,7 @@
 
     // output nodes + labels + bars
     const gOut = el("g", {}); net.appendChild(gOut);
-    winRing = el("circle", {cx:OX, cy:OY0, r:22, fill:"none", stroke:"var(--amber)", "stroke-width":2.5, class:"winRing", opacity:0});
+    winRing = el("circle", {cx:OX, cy:OY0, r:22, fill:"none", stroke:"#fff", "stroke-width":2.5, class:"winRing", opacity:0});
     gOut.appendChild(winRing);
     for (let o=0;o<OUT;o++){
       const oy = OY0 + o*OStep;
@@ -545,17 +546,17 @@
       const norm = (drawn && wp>0) ? p/wp : 0;
       const isWin = drawn && o===win;
       outNodes[o].setAttribute("fill-opacity", drawn ? (0.1 + norm*0.9).toFixed(3) : "0.55");
-      outNodes[o].setAttribute("fill", !drawn ? actColor(0) : (isWin ? "var(--amber)" : "var(--accent)"));
+      outNodes[o].setAttribute("fill", isWin ? "var(--accent)" : actColor(0));   // winner = green, every loser = red
       outLabels[o].setAttribute("fill", (isWin || norm>0.6) ? "#05070c" : "var(--ink)");
       outBars[o].setAttribute("width", (p*44).toFixed(1));
-      outBars[o].setAttribute("fill", isWin ? "var(--amber)" : "var(--accent)");
+      outBars[o].setAttribute("fill", isWin ? "var(--accent)" : actColor(0));
       outPcts[o].textContent = drawn ? Math.round(p*100)+"%" : "—";
     }
     // hidden->output line glow = incoming-hidden strength × output prob
     for (const L of hidOutLines){
       const s = drawn ? Math.min(1, hid[L.h]/hmax) * (out[L.o]/(wp||1)) : 0;
       L.el.setAttribute("stroke-opacity", (0.03 + s*0.55).toFixed(3));
-      L.el.setAttribute("stroke", (drawn && L.o===win) ? "var(--amber)" : actColor(s));
+      L.el.setAttribute("stroke", (drawn && L.o===win) ? "var(--accent)" : actColor(s));
       // white outline for the strongest signals (over the 90% threshold)
       L.halo.setAttribute("stroke-opacity", (drawn && s > STRONG) ? 0.9 : 0);
     }
@@ -671,6 +672,7 @@
   });
 
   // ================= weight inspector: show a neuron's weights as a red/green heatmap =================
+  const inspector = document.getElementById("inspector");
   const wmap = document.getElementById("wmap");
   const ictx = wmap.getContext("2d");
   const inspTitle = document.getElementById("inspTitle");
@@ -702,21 +704,27 @@
   }
   function drawWeights(values, w, h){ paintWeights(ictx, 224, 224, values, w, h); }   // full-size, into the inspector canvas
 
-  function selectNeuron(type, idx){ sel = {type, idx}; renderInspector(); }
+  function selectNeuron(type, idx){
+    // clicking the already-selected neuron again deselects it (and hides the inspector)
+    if (sel && sel.type === type && sel.idx === idx) sel = null;
+    else sel = {type, idx};
+    renderInspector();
+  }
 
   function renderInspector(){
-    if (sel === null){
+    if (sel === null){                       // nothing selected -> hide the whole inspector panel
+      inspector.hidden = true;
       selRing.setAttribute("opacity", 0);
-      ictx.fillStyle = "#0b0f17"; ictx.fillRect(0, 0, 224, 224);
-      inspTitle.textContent = "Click a neuron to see its weights";
-      inspBias.textContent = "";
       return;
     }
+    inspector.hidden = false;                // a neuron is selected -> show the panel
     if (sel.type === "hid"){
       const j = sel.idx;
       drawWeights(W1.subarray(j*IN, (j+1)*IN), 28, 28);            // 784 weights = 28×28 receptive field
       inspTitle.textContent = "Hidden neuron  h[" + j + "]";
       inspBias.innerHTML = "<span class='k'>bias</span> " + b1[j].toFixed(3) + "   ·   784 weights (28×28)";
+      wmap.setAttribute("data-tip",
+        "Each of the 784 pixels is one weight, laid out over the input image (28×28). Green = a bright pixel there pushes this neuron toward firing; red = it pushes it toward staying off; darker = little effect. So this picture is the input pattern the neuron is tuned to detect — its receptive field. Random now, because the network is untrained; after training it starts to look like a stroke or blob.");
       const p = hidPos(j);
       selRing.setAttribute("cx", p.x); selRing.setAttribute("cy", p.y); selRing.setAttribute("r", 12);
     } else {
@@ -724,6 +732,8 @@
       drawWeights(W2.subarray(o*HID, (o+1)*HID), 8, 16);           // 128 weights = 8×16, matching the hidden grid
       inspTitle.textContent = "Output digit  " + o;
       inspBias.innerHTML = "<span class='k'>bias</span> " + b2[o].toFixed(3) + "   ·   128 weights (8×16 over the hidden layer)";
+      wmap.setAttribute("data-tip",
+        "Each cell is one weight connecting a hidden neuron to this digit (128 of them, on the same 8×16 grid as the diagram). Green = when that hidden neuron fires, it votes FOR calling the image a " + o + "; red = it votes against; darker = little say. Add up all 128 votes and you get this digit's score.");
       selRing.setAttribute("cx", OX); selRing.setAttribute("cy", OY0 + o*OStep); selRing.setAttribute("r", 22);
     }
     selRing.setAttribute("opacity", 1);

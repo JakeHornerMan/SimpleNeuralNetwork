@@ -24,13 +24,18 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 - Scores one real MNIST digit through the untrained net (lands near **ln(10) ≈ 2.30**, the random-guess baseline) and then demos the intuition with hand-made logits (confident-right ≈ 0.001, unsure ≈ 2.30, confident-wrong ≈ 9.0). **Verified working.**
 - Reinforces why `model.py` returns raw logits: `CrossEntropyLoss` applies softmax internally.
 
+### ✅ Step 3b — Optimiser + backprop · `optimizer.py`
+- The "nudge the weights" step. Uses `torch.optim.Adam(model.parameters(), lr=0.001)` — Adam = adaptive gradient descent with momentum; `lr` is the step size (landscape/walk-downhill metaphor documented in-file).
+- Demonstrates the core training ritual on **one fixed batch of 8 digits**: `optimizer.zero_grad()` → forward → `loss` → `loss.backward()` (backprop = the slope) → `optimizer.step()` (the nudge). Loss falls **2.34 → 0.33** and accuracy climbs **0/8 → 8/8** — proof the weights are being pulled downhill. **Verified working.**
+
 ### ✅ Interactive front-end · `nn_visualizer.html`
 - A self-contained HTML/JS Artifact that visualizes the model: **draw a digit** and watch it flow through the network live (forward pass reimplemented in JS with PyTorch-style random weight init).
 - The 784 input pixels are abstracted into the single drawn image; the 128 hidden neurons and 10 outputs are circles that **light up with their real activations**.
 - Activation strength is colour-coded on a **red → green ramp**; the strongest signals (**>90%**) get a **white outline**; the winning output digit (argmax) is highlighted in **amber**.
 - **"Actual digit" picker** sets a true label and drives a live **cross-entropy loss** readout (`loss = −ln(prob of true digit)`) — the browser mirror of `loss_function.py`, with a meter and an ln(10) baseline tick.
 - **Hover tooltips** give plain-language reminders on the loss label, value, meter, and hint.
-- **Weight inspector:** click any neuron to see its weights as a red (negative) → green (positive) heatmap — a hidden neuron shows its 784 weights as a 28×28 receptive field; an output digit shows its 128 weights on the same 8×16 grid as the diagram. Bias is shown too.
+- **Weight inspector:** click any neuron to see its weights as a red (negative) → green (positive) heatmap — a hidden neuron shows its 784 weights as a 28×28 receptive field; an output digit shows its 128 weights on the same 8×16 grid as the diagram. Bias is shown too. Panel is hidden until a neuron is selected; click the same neuron again to deselect. The weight image has its own hover tooltip explaining what it represents.
+- **Output colours:** the winning digit (argmax) is green with a white ring; all losing digits are red.
 - **Hover weight preview:** hovering any neuron pops a tooltip with a mini version of that same weight heatmap plus its bias and current activation — a quick scan without opening the full inspector.
 - **Dud handling:** an all-black input is treated as no signal — activations are forced to zero (all nodes red), no prediction — rather than reading the bias-driven values.
 - Honestly labeled as **untrained** — predictions are random because no training has happened yet. Live at the Artifact URL; the file is version-controlled in the repo.
@@ -42,8 +47,7 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 
 ## Not built yet
 
-- **Step 3b — Optimizer + backprop:** use the loss to actually adjust the weights (`loss.backward()`, an optimizer like SGD/Adam, `optimizer.step()`).
-- **Step 3c — Training loop:** `DataLoader` batching over epochs, and saving the trained weights.
+- **Step 3c — Training loop:** `DataLoader` batching over the full 60k set for several epochs, and saving the trained weights.
 - **Step 4 — Evaluation:** measuring accuracy on the 10k test set.
 - **Wiring trained weights into `nn_visualizer.html`** so it becomes a real digit classifier instead of a random one.
 
@@ -55,6 +59,7 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 pip install torch torchvision     # one-time setup
 python load_mnist_data.py         # download data + sanity check
 python loss_function.py           # Step 3a: see cross-entropy loss react to good vs bad guesses
+python optimizer.py               # Step 3b: watch Adam drive the loss down on one batch (0/8 -> 8/8)
 python -c "import torch; from model import SimpleNN; print(SimpleNN()(torch.randn(4,1,28,28)).shape)"   # check the model → [4, 10]
 ```
 
