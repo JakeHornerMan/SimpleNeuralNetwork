@@ -336,6 +336,58 @@
     padding: 14px 22px; border-top: 1px solid var(--line); background: var(--panel-2); }
   .footNote { font-size: 11.5px; color: var(--muted); flex: 1 1 220px; min-width: 0; }
 
+  /* ---- derivation (the maths, worked) ---- */
+  .deriv { border-top: 1px solid var(--line); margin-top: 4px; }
+  .deriv > summary { cursor: pointer; list-style: none; padding: 14px 0; font-weight: 640; font-size: 13.5px;
+    color: var(--accent-ink); display: flex; align-items: center; gap: 8px; }
+  .deriv > summary::-webkit-details-marker { display: none; }
+  .deriv > summary .chev { transition: transform .2s; display: inline-block; }
+  .deriv[open] > summary .chev { transform: rotate(180deg); }
+  .derivIntro { color: var(--ink); font-size: 13.5px; margin: 0 0 6px; }
+  .derivIntro b { color: var(--accent-ink); }
+  .moveM { padding: 16px 0; border-top: 1px dashed var(--line); }
+  .moveM h4 { margin: 0 0 10px; font-size: 12.5px; letter-spacing: .02em; font-weight: 640; color: var(--ink); }
+  .moveM h4 em { font-style: italic; color: var(--accent-ink); }
+  .mcap { margin: 10px 0 0; color: var(--muted); font-size: 12.5px; max-width: 66ch; }
+  .mcap b { color: var(--ink); } .mcap.mono { font-family: ui-monospace, monospace; color: var(--ink); }
+  .moveM .neg, .mplug .neg, .mcap .neg { color: hsl(0, 72%, 58%); }
+  .moveM .pos, .mplug .pos, .mcap .pos { color: hsl(140, 55%, 48%); }
+  .pipeline { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin: 0;
+    font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .pipeline span { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 3px 8px; color: var(--ink); }
+
+  math { font-size: 1.08em; color: var(--ink); }
+  math[display="block"] { display: block; overflow-x: auto; margin: 6px 0; padding: 8px 2px; }
+  math.boxed { border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px;
+    background: color-mix(in oklab, var(--accent) 8%, transparent); }
+
+  .mplug { display: flex; justify-content: space-between; gap: 16px; align-items: baseline;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; margin: 8px 0; font-size: 12.5px; }
+  .mplug > span { color: var(--muted); }
+  .mplug > b { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .ladder { margin: 8px 0; }
+  .rung { display: grid; grid-template-columns: 22px 1fr; gap: 12px; padding: 10px 0;
+    border-bottom: 1px dashed var(--line); }
+  .rung:last-child { border-bottom: none; }
+  .rung .rn { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); padding-top: 8px; }
+  .rung .why { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+
+  .derivLink { background: color-mix(in oklab, var(--accent) 9%, transparent);
+    border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--line));
+    border-radius: 10px; padding: 14px 16px; margin: 14px 0; font-size: 13px; color: var(--ink); }
+  .derivLink b { color: var(--accent-ink); }
+  .derivLink .mono { font-family: ui-monospace, monospace; color: var(--ink); }
+
+  .crib { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; margin-top: 16px; }
+  .cribH { margin: 0 0 12px; font-size: 14px; font-weight: 660; }
+  .crib ol { margin: 0; padding-left: 20px; }
+  .crib li { color: var(--muted); font-size: 13px; margin-bottom: 9px; }
+  .crib li b { color: var(--ink); }
+
   .themeToggle {
     position: fixed; top: 14px; right: 14px; z-index: 5;
     font: inherit; font-size: 12px; color: var(--muted);
@@ -538,6 +590,85 @@
         <p class="panelCap">At the output, <code>dL/dlogit = softmax − one_hot</code>. It equals the fc2 <b>bias</b> gradient exactly <span id="capE"></span></p>
         <div class="tableWrap"><table class="paTable" id="panelE"></table></div>
       </section>
+
+      <details class="deriv">
+        <summary>Show the maths, worked <span class="chev">▾</span></summary>
+        <p class="derivIntro">The panels above are the <em>numbers</em>. Here's the algebra underneath them — why a scary-looking derivative collapses into three words: <b>predicted − actual</b>. Every value is from your current drawing (true label <b id="mTrue">·</b>).</p>
+
+        <div class="moveM">
+          <h4>0 · The forward path, in symbols</h4>
+          <p class="pipeline"><span>x</span> → <span>a = ReLU(W₁x + b₁)</span> → <span>z = W₂a + b₂</span> → <span>p = softmax(z)</span> → <span>L</span></p>
+          <p class="mcap">A drawing goes in as 784 pixels; one loss number comes out. Training needs the slope of <i>L</i> w.r.t. every weight — and it all hinges on one clean result at the logits <i>z</i>.</p>
+        </div>
+
+        <div class="moveM">
+          <h4>1 · Softmax turns scores into probabilities</h4>
+          <math display="block"><msub><mi>p</mi><mi>i</mi></msub><mo>=</mo><mfrac><msup><mi>e</mi><msub><mi>z</mi><mi>i</mi></msub></msup><mrow><munder><mo>∑</mo><mi>j</mi></munder><msup><mi>e</mi><msub><mi>z</mi><mi>j</mi></msub></msup></mrow></mfrac></math>
+          <div class="mplug"><span>p on the true digit</span><b id="mPt">·</b></div>
+          <p class="mcap">That's the "before" column of Panel A.</p>
+        </div>
+
+        <div class="moveM">
+          <h4>2 · Cross-entropy reads one number: p on the truth</h4>
+          <math display="block"><mi>L</mi><mo>=</mo><mo>−</mo><mi>ln</mi><mspace width="0.2em"></mspace><msub><mi>p</mi><mi>y</mi></msub></math>
+          <div class="mplug"><span>L = −ln(p on true digit)</span><b id="mLoss">·</b></div>
+          <p class="mcap">Compare the <b>ln(10) ≈ 2.30</b> baseline from <code>loss_function.py</code> — the loss of a pure 1-in-10 guess.</p>
+        </div>
+
+        <div class="moveM">
+          <h4>3 · Why the gradient <em>is</em> "predicted − actual"</h4>
+          <p class="mcap">It looks like it needs the quotient rule and exponentials. It doesn't — watch it collapse.</p>
+          <div class="ladder">
+            <div class="rung"><span class="rn">i</span><div class="rb">
+              <math display="block"><mi>L</mi><mo>=</mo><mo>−</mo><msub><mi>z</mi><mi>y</mi></msub><mo>+</mo><mi>ln</mi><munder><mo>∑</mo><mi>j</mi></munder><msup><mi>e</mi><msub><mi>z</mi><mi>j</mi></msub></msup></math>
+              <p class="why">The ln of a quotient becomes a subtraction — two simple terms.</p></div></div>
+            <div class="rung"><span class="rn">ii</span><div class="rb">
+              <math display="block"><mfrac><mrow><mo>∂</mo><mo>(</mo><mo>−</mo><msub><mi>z</mi><mi>y</mi></msub><mo>)</mo></mrow><mrow><mo>∂</mo><msub><mi>z</mi><mi>i</mi></msub></mrow></mfrac><mo>=</mo><mo>−</mo><mn>1</mn><mo>[</mo><mi>i</mi><mo>=</mo><mi>y</mi><mo>]</mo></math>
+              <p class="why">The first term holds only z_y: derivative is −1 for the true class, 0 elsewhere.</p></div></div>
+            <div class="rung"><span class="rn">iii</span><div class="rb">
+              <math display="block"><mfrac><mo>∂</mo><mrow><mo>∂</mo><msub><mi>z</mi><mi>i</mi></msub></mrow></mfrac><mi>ln</mi><munder><mo>∑</mo><mi>j</mi></munder><msup><mi>e</mi><msub><mi>z</mi><mi>j</mi></msub></msup><mo>=</mo><msub><mi>p</mi><mi>i</mi></msub></math>
+              <p class="why">The log-sum-exp term differentiates straight back into softmax. This is the small miracle.</p></div></div>
+            <div class="rung"><span class="rn">iv</span><div class="rb">
+              <math display="block" class="boxed"><mfrac><mrow><mo>∂</mo><mi>L</mi></mrow><mrow><mo>∂</mo><msub><mi>z</mi><mi>i</mi></msub></mrow></mfrac><mo>=</mo><msub><mi>p</mi><mi>i</mi></msub><mo>−</mo><mn>1</mn><mo>[</mo><mi>i</mi><mo>=</mo><mi>y</mi><mo>]</mo></math>
+              <p class="why">Add the two pieces: predicted probability minus 1 if it's the true class.</p></div></div>
+          </div>
+          <div class="mplug"><span>true digit: p<sub>y</sub> − 1</span><b class="neg" id="mDzTrue">·</b></div>
+          <div class="mplug"><span>a wrong digit <b id="mWrongIdx">·</b>: just p<sub>i</sub></span><b class="pos" id="mDzWrong">·</b></div>
+          <p class="mcap">That's Panel B exactly. True digit's gradient is <span class="neg">negative</span>, and the update subtracts it → its logit is <b>raised</b>; wrong digits are <span class="pos">positive</span> → <b>lowered</b>.</p>
+        </div>
+
+        <div class="derivLink"><b>Panel E is this same line.</b> Because z<sub>i</sub> = Σ W₂[i,j]·a<sub>j</sub> + b₂[i] and the bias enters with coefficient 1, the bias gradient <em>equals</em> the logit gradient: ∂L/∂b₂[i] = p<sub>i</sub> − 1[i=y]. "Predicted − actual" and "the fc2 bias gradient" are literally the same ten numbers.</div>
+
+        <div class="moveM">
+          <h4>4 · One chain-rule hop to every fc2 weight</h4>
+          <math display="block"><mfrac><mrow><mo>∂</mo><mi>L</mi></mrow><mrow><mo>∂</mo><msub><mi>W</mi><mn>2</mn></msub><mo>[</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo>]</mo></mrow></mfrac><mo>=</mo><mo>(</mo><msub><mi>p</mi><mi>i</mi></msub><mo>−</mo><mn>1</mn><mo>[</mo><mi>i</mi><mo>=</mo><mi>y</mi><mo>]</mo><mo>)</mo><mo>·</mo><msub><mi>a</mi><mi>j</mi></msub></math>
+          <p class="mcap"><b>The gradient on an output weight is the neuron's error times how active its input was.</b> A weight is only blamed to the extent it was firing — the (p−actual) vector times the activation vector, filling Panel D's 10×128 grid.</p>
+          <div class="derivLink alt"><b>The bridge from Panel B to Panel C.</b> Take <span id="mW" class="mono">·</span>. Its gradient (Panel C) is <b id="mGrad" class="mono">·</b>. That digit's logit-gradient (Panel B) is <b id="mDz" class="mono">·</b>. Divide: the hidden neuron feeding it was firing at a<sub>j</sub> = <b id="mAct" class="mono">·</b>. Same error, spread back across the neurons that caused it.</div>
+        </div>
+
+        <div class="moveM">
+          <h4>5 · new = old − lr × grad, worked</h4>
+          <math display="block"><msub><mi>W</mi><mn>2</mn></msub><mo>[</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo>]</mo><mo>←</mo><msub><mi>W</mi><mn>2</mn></msub><mo>[</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo>]</mo><mo>−</mo><mi>η</mi><mfrac><mrow><mo>∂</mo><mi>L</mi></mrow><mrow><mo>∂</mo><msub><mi>W</mi><mn>2</mn></msub><mo>[</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo>]</mo></mrow></mfrac></math>
+          <p class="mcap mono" id="mWorked">·</p>
+          <p class="mcap">The full table is Panel C. Every spotlighted weight is in the true digit's row, every gradient negative — so the step raises the whole row, strengthening the connections that vote for your digit.</p>
+        </div>
+
+        <div class="moveM">
+          <h4>6 · Why so gentle</h4>
+          <p class="mcap">The biggest update above is a feather-touch against weights of similar size. The gradient only gives the downhill direction <i>right where you're standing</i>; trust it too far and you overshoot. Your own finding is the proof: this same one step at <b>η = 0.30</b> collapsed test accuracy 97.5% → ~10% — <b>catastrophic forgetting</b>. The honest fix for a wrong prediction isn't a bigger nudge, it's more data and a full retrain.</p>
+        </div>
+
+        <div class="crib">
+          <h4 class="cribH">The 45-second version</h4>
+          <ol>
+            <li><b>Forward:</b> drawing → 784 pixels → 128 hidden → 10 logits → softmax → probabilities.</li>
+            <li><b>Loss:</b> cross-entropy looks only at p on the true digit, L = −ln p<sub>true</sub>; near ln(10) = guessing.</li>
+            <li><b>The neat bit:</b> the gradient on the logits is just <b>predicted − actual</b> — the log-sum-exp term differentiates back to softmax and everything cancels.</li>
+            <li><b>Into the weights:</b> one chain-rule hop — each weight's gradient is that error times its input's activation.</li>
+            <li><b>The step:</b> new = old − lr × gradient. Small on purpose — a big step triggers catastrophic forgetting.</li>
+          </ol>
+        </div>
+      </details>
     </div>
     <div class="modalFoot">
       <button class="btn primary" id="stepDownload" type="button">Download instance-<span id="dlLabel">?</span>.json</button>
@@ -1005,11 +1136,12 @@
     const pAfter=new Float32Array(OUT); let sum2=0;
     for (let o=0;o<OUT;o++){ const e=Math.exp(z2[o]-z2max); pAfter[o]=e; sum2+=e; }
     for (let o=0;o<OUT;o++) pAfter[o]/=sum2;
-    // --- the 5 fc2 weights with the largest |gradient| ---
+    // --- the 5 fc2 weights with the largest |gradient| ---  (a = the hidden activation feeding each one)
     const top5 = Array.from({length:OUT*HID}, (_,k)=>k)
       .sort((a,b)=>Math.abs(dW2[b])-Math.abs(dW2[a])).slice(0,5)
-      .map(k=>({ o:(k/HID)|0, j:k%HID, old:W2[k], grad:dW2[k] }));
-    return { t, pBefore, pAfter, dz, dW2, top5, lr };
+      .map(k=>({ o:(k/HID)|0, j:k%HID, old:W2[k], grad:dW2[k], a:h[k%HID] }));
+    const loss = -Math.log(Math.max(pBefore[t], 1e-12));   // cross-entropy on the true digit: L = -ln(p_y)
+    return { t, pBefore, pAfter, dz, dW2, top5, lr, loss };
   }
 
   const stepModal = document.getElementById("stepModal");
@@ -1079,6 +1211,24 @@
     }
     E.innerHTML = eh + "</tbody>";
     document.getElementById("capE").textContent = "— for digit "+t+" it's p−1 < 0 (pushes its logit up); for the rest it's p > 0 (pushes them down).";
+
+    // --- live values for the "maths, worked" derivation ---
+    document.getElementById("mTrue").textContent = t;
+    document.getElementById("mPt").textContent = "p" + t + " = " + r.pBefore[t].toFixed(3) + "  (" + (r.pBefore[t]*100).toFixed(1) + "%)";
+    document.getElementById("mLoss").textContent = "L = " + r.loss.toFixed(3) + (r.loss < 2.302 ? "  (a hair better than a guess)" : "  (≈ the ln 10 baseline)");
+    document.getElementById("mDzTrue").textContent = r.pBefore[t].toFixed(3) + " − 1 = " + r.dz[t].toFixed(4);
+    let w = -1, wp = -1;                                   // a representative wrong digit = the most-probable non-true class
+    for (let o=0;o<OUT;o++){ if (o!==t && r.pBefore[o]>wp){ wp=r.pBefore[o]; w=o; } }
+    document.getElementById("mWrongIdx").textContent = w;
+    document.getElementById("mDzWrong").textContent = r.dz[w].toFixed(4);
+    const e0 = r.top5[0], dzo = r.dz[e0.o], rec = dzo!==0 ? e0.grad/dzo : 0;   // recover the activation from grad / logit-grad
+    document.getElementById("mW").textContent = "W2[" + e0.o + "," + e0.j + "]";
+    document.getElementById("mGrad").textContent = e0.grad.toFixed(4);
+    document.getElementById("mDz").textContent = dzo.toFixed(4);
+    document.getElementById("mAct").textContent = rec.toFixed(3);
+    const nw0 = e0.old - e0.grad*r.lr;                     // spotlight update worked longhand
+    document.getElementById("mWorked").textContent =
+      "W2[" + e0.o + "," + e0.j + "]:  " + e0.old.toFixed(4) + " − 0.01 × (" + e0.grad.toFixed(4) + ") = " + nw0.toFixed(4);
   }
 
   function openStepModal(){
