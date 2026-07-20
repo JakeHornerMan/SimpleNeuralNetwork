@@ -261,6 +261,81 @@
   .ebar span { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 620; font-variant-numeric: tabular-nums; }
   .ebar small { font-size: 10.5px; color: var(--muted); font-family: ui-monospace, monospace; }
 
+  /* ---- single-step explainer modal ---- */
+  .modalBackdrop {
+    position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+    background: color-mix(in oklab, #05070c 62%, transparent); padding: 20px;
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  }
+  .modalBackdrop[hidden] { display: none; }
+  .modalDialog {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); width: min(780px, 100%); max-height: 88vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modalHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    padding: 20px 22px 14px; border-bottom: 1px solid var(--line); }
+  .modalTitle { font-size: 20px; margin: 0 0 6px; letter-spacing: -.01em; font-weight: 660; }
+  .modalTitle code, .modalEq code, .panelCap code, .footNote code {
+    font-family: ui-monospace, monospace; font-size: .88em;
+    background: var(--panel-2); padding: 1px 5px; border-radius: 5px; }
+  .modalEq { margin: 0; color: var(--muted); font-size: 13px; }
+  .modalClose { flex: none; font-size: 16px; line-height: 1; color: var(--muted); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; }
+  .modalClose:hover { color: var(--ink); }
+  .modalBody { padding: 6px 22px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .panel { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .panel:last-child { border-bottom: none; }
+  .panel h3 { margin: 0 0 4px; font-size: 13px; letter-spacing: .01em; font-weight: 640; }
+  .panelCap { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; max-width: 66ch; }
+
+  .probRows, .gradBars { display: flex; flex-direction: column; gap: 5px; }
+  .pRow { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px;
+    padding: 2px 6px; border-radius: 6px; }
+  .pRow.win { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+  .pRow .cls { font-family: ui-monospace, monospace; font-weight: 640; font-size: 13px; }
+  .pRow.win .cls { color: var(--accent-ink); }
+  .pStack { display: flex; flex-direction: column; gap: 3px; }
+  .pTrack { position: relative; height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+  .pTrack i { position: absolute; inset: 0 auto 0 0; display: block; border-radius: 4px; }
+  .pTrack.before i { background: color-mix(in oklab, var(--muted) 60%, transparent); }
+  .pTrack.after i { background: var(--accent); }
+  .pRow .num { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--muted);
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pRow .num b { color: var(--ink); }
+
+  .gRow { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; }
+  .gRow .cls { font-family: ui-monospace, monospace; font-weight: 640; font-size: 13px; }
+  .gTrack { height: 9px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+  .gTrack i { display: block; height: 100%; border-radius: 4px; }
+  .gRow .num { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--muted);
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .tableWrap { overflow-x: auto; }
+  table.workTable, table.paTable { border-collapse: collapse; font-family: ui-monospace, monospace;
+    font-size: 12px; width: 100%; font-variant-numeric: tabular-nums; }
+  .workTable th, .workTable td, .paTable th, .paTable td {
+    text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .workTable th, .paTable th { color: var(--muted); font-weight: 600; text-transform: uppercase;
+    font-size: 10.5px; letter-spacing: .06em; }
+  .workTable td:first-child, .paTable td:first-child { text-align: left; color: var(--muted); }
+  .paTable tr.win td { background: color-mix(in oklab, var(--accent) 13%, transparent); }
+  .paTable tr.win td:first-child { color: var(--accent-ink); font-weight: 640; }
+  td.neg { color: hsl(0, 72%, 52%); }
+  td.pos { color: hsl(140, 60%, 42%); }
+
+  .gradMapWrap { display: flex; gap: 6px; align-items: stretch; overflow-x: auto; }
+  .gradMapLabels { display: flex; flex-direction: column; flex: none; }
+  .gradMapLabels span { height: 16px; display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 4px; font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+  .gradMapLabels span.win { color: var(--accent-ink); font-weight: 700; }
+  canvas.gradMap { height: 160px; image-rendering: pixelated; border: 1px solid var(--line);
+    border-radius: 6px; background: #0b0f17; flex: none; }
+
+  .modalFoot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 14px 22px; border-top: 1px solid var(--line); background: var(--panel-2); }
+  .footNote { font-size: 11.5px; color: var(--muted); flex: 1 1 220px; min-width: 0; }
+
   .themeToggle {
     position: fixed; top: 14px; right: 14px; z-index: 5;
     font: inherit; font-size: 12px; color: var(--muted);
@@ -421,6 +496,54 @@
     <div class="row"><span class="swatch" style="background:hsl(130,78%,46%);box-shadow:0 0 0 2px #fff"></span> strongest signals (&gt;90%, white outline)</div>
     <div class="row"><span class="swatch" style="background:hsl(130,78%,46%);box-shadow:0 0 0 2px #fff"></span> winning output — green + white ring (losing outputs are red)</div>
     <div class="row" style="color:var(--muted)">Hover any neuron for a mini weight preview · click to open the full inspector, click again to close.</div>
+  </div>
+</div>
+
+<div class="modalBackdrop" id="stepModal" hidden>
+  <div class="modalDialog" role="dialog" aria-modal="true" aria-labelledby="stepTitle">
+    <div class="modalHead">
+      <div>
+        <p class="eyebrow" style="margin:0 0 6px">One gradient-descent step</p>
+        <h2 id="stepTitle" class="modalTitle">What <code>train_one.py</code> will do to this drawing</h2>
+        <p class="modalEq"><code>new = old − lr × grad</code> &nbsp;·&nbsp; lr 0.01 &nbsp;·&nbsp; plain SGD &nbsp;·&nbsp; one example</p>
+      </div>
+      <button class="modalClose" id="stepClose" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="modalBody">
+      <section class="panel">
+        <h3>A · Probabilities, before → after the step</h3>
+        <p class="panelCap" id="capA"></p>
+        <div class="probRows" id="panelA"></div>
+      </section>
+      <section class="panel">
+        <h3>B · Gradient size per output neuron</h3>
+        <p class="panelCap"><code>|softmax − actual|</code> — the net is pushed hardest exactly where it was most wrong.</p>
+        <div class="gradBars" id="panelB"></div>
+      </section>
+      <section class="panel">
+        <h3>C · The update, on real numbers</h3>
+        <p class="panelCap">The 5 output-layer weights with the biggest gradient. Every one obeys <code>new = old − lr × grad</code>.</p>
+        <div class="tableWrap"><table class="workTable" id="panelC"></table></div>
+      </section>
+      <section class="panel">
+        <h3>D · Output-layer weight gradient (fc2)</h3>
+        <p class="panelCap">dL/dW for every fc2 weight — 10 digit rows × 128 hidden columns. Green = +, red = −. The true digit's row is mostly red: its weights get pushed up.</p>
+        <div class="gradMapWrap">
+          <div class="gradMapLabels" id="panelDlabels"></div>
+          <canvas id="panelD" width="512" height="160" class="gradMap"></canvas>
+        </div>
+      </section>
+      <section class="panel">
+        <h3>E · The gradient is just “predicted − actual”</h3>
+        <p class="panelCap">At the output, <code>dL/dlogit = softmax − one_hot</code>. It equals the fc2 <b>bias</b> gradient exactly <span id="capE"></span></p>
+        <div class="tableWrap"><table class="paTable" id="panelE"></table></div>
+      </section>
+    </div>
+    <div class="modalFoot">
+      <button class="btn primary" id="stepDownload" type="button">Download instance-<span id="dlLabel">?</span>.json</button>
+      <button class="btn" id="stepDismiss" type="button">Close</button>
+      <span class="footNote">Preview only — this doesn't change the live model. <code>train_one.py</code> applies this exact step for real.</span>
+    </div>
   </div>
 </div>
 
@@ -797,7 +920,7 @@
     if (trained) { seed = (Math.random()*1e9)|0; initWeights(); setTrained(false); }   // toggle: revert to random
     else loadTrained();                                                                // load the precomputed trained weights
   });
-  window.addEventListener("keydown", e => { if (e.key === "Escape") clearPad(); });
+  window.addEventListener("keydown", e => { if (e.key === "Escape" && document.getElementById("stepModal").hidden) clearPad(); });
 
   // faint 28-grid overlay on the pad
   (function gridlines(){
@@ -832,8 +955,7 @@
       ? "downloads this drawing labelled “" + trueLabel + "” for train_one.py"
       : (!drawn ? "draw a digit & pick its true label to enable" : "pick the true label above to enable");
   }
-  exportBtn.addEventListener("click", () => {
-    if (trueLabel === null || !grid.some(v => v>0)) return;
+  function downloadInstance(){       // the actual file download — now triggered from inside the explainer modal
     // export netInput (the normalized 28×28 the network actually reads) so Python trains on the exact same input
     const payload = { note: "SimpleNN single instance", label: trueLabel, pixels: Array.from(netInput, v => +v.toFixed(6)) };
     const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
@@ -843,7 +965,133 @@
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(a.href);
     trainHint.textContent = "exported instance-" + trueLabel + ".json → run:  python train_one.py";
+  }
+  exportBtn.addEventListener("click", () => {
+    if (trueLabel === null || !grid.some(v => v>0)) return;
+    openStepModal();                 // show the "one SGD step, explained" preview; the download lives inside it
   });
+
+  // ================= "one SGD step, explained" modal =================
+  // Compute exactly ONE plain-SGD step (new = old - lr*grad) on the current drawing + label, using the
+  // currently-loaded weights. Nothing is persisted — this only PREVIEWS the step train_one.py will apply.
+  const EXPLAIN_LR = 0.01;           // matches train_one.py's LR
+  function computeSingleStep(){
+    const x = netInput, t = trueLabel, lr = EXPLAIN_LR;
+    // --- forward ---
+    const h = new Float32Array(HID);
+    for (let j=0;j<HID;j++){ let s=b1[j], base=j*IN; for (let i=0;i<IN;i++){ const xi=x[i]; if(xi!==0) s+=W1[base+i]*xi; } h[j]=s>0?s:0; }
+    const z = new Float32Array(OUT); let zmax=-Infinity;
+    for (let o=0;o<OUT;o++){ let s=b2[o], base=o*HID; for (let j=0;j<HID;j++) s+=W2[base+j]*h[j]; z[o]=s; if(s>zmax)zmax=s; }
+    const pBefore = new Float32Array(OUT); let sum=0;
+    for (let o=0;o<OUT;o++){ const e=Math.exp(z[o]-zmax); pBefore[o]=e; sum+=e; }
+    for (let o=0;o<OUT;o++) pBefore[o]/=sum;
+    // --- output gradient: dz = softmax − one_hot  (this IS dL/dlogits AND the fc2 bias gradient) ---
+    const dz = new Float32Array(OUT);
+    for (let o=0;o<OUT;o++) dz[o] = pBefore[o] - (o===t?1:0);
+    // --- fc2 weight grad, hidden grad, fc1 weight grad ---
+    const dW2 = new Float32Array(OUT*HID);
+    for (let o=0;o<OUT;o++){ const base=o*HID; for (let j=0;j<HID;j++) dW2[base+j]=dz[o]*h[j]; }
+    const dz1 = new Float32Array(HID);
+    for (let j=0;j<HID;j++){ let s=0; for (let o=0;o<OUT;o++) s+=W2[o*HID+j]*dz[o]; dz1[j] = h[j]>0 ? s : 0; }
+    // --- updated COPIES (SGD), then a second forward for the "after" probabilities ---
+    const nW2=new Float32Array(OUT*HID); for(let k=0;k<nW2.length;k++) nW2[k]=W2[k]-lr*dW2[k];
+    const nb2=new Float32Array(OUT); for(let o=0;o<OUT;o++) nb2[o]=b2[o]-lr*dz[o];
+    const nW1=new Float32Array(HID*IN), nb1=new Float32Array(HID);
+    for (let j=0;j<HID;j++){ nb1[j]=b1[j]-lr*dz1[j]; const base=j*IN; for (let i=0;i<IN;i++) nW1[base+i]=W1[base+i]-lr*(dz1[j]*x[i]); }
+    const h2=new Float32Array(HID);
+    for (let j=0;j<HID;j++){ let s=nb1[j], base=j*IN; for (let i=0;i<IN;i++){ const xi=x[i]; if(xi!==0) s+=nW1[base+i]*xi; } h2[j]=s>0?s:0; }
+    const z2=new Float32Array(OUT); let z2max=-Infinity;
+    for (let o=0;o<OUT;o++){ let s=nb2[o], base=o*HID; for (let j=0;j<HID;j++) s+=nW2[base+j]*h2[j]; z2[o]=s; if(s>z2max)z2max=s; }
+    const pAfter=new Float32Array(OUT); let sum2=0;
+    for (let o=0;o<OUT;o++){ const e=Math.exp(z2[o]-z2max); pAfter[o]=e; sum2+=e; }
+    for (let o=0;o<OUT;o++) pAfter[o]/=sum2;
+    // --- the 5 fc2 weights with the largest |gradient| ---
+    const top5 = Array.from({length:OUT*HID}, (_,k)=>k)
+      .sort((a,b)=>Math.abs(dW2[b])-Math.abs(dW2[a])).slice(0,5)
+      .map(k=>({ o:(k/HID)|0, j:k%HID, old:W2[k], grad:dW2[k] }));
+    return { t, pBefore, pAfter, dz, dW2, top5, lr };
+  }
+
+  const stepModal = document.getElementById("stepModal");
+  const f4 = v => (v>=0?" ":"−") + Math.abs(v).toFixed(4);   // signed, fixed-width-ish
+  function renderStepModal(){
+    const r = computeSingleStep(), t = r.t;
+    document.getElementById("dlLabel").textContent = t;
+
+    // Panel A — before/after probabilities
+    const A = document.getElementById("panelA"); A.innerHTML = "";
+    for (let o=0;o<OUT;o++){
+      const row = document.createElement("div"); row.className = "pRow" + (o===t?" win":"");
+      row.innerHTML =
+        "<span class='cls'>"+o+"</span>"+
+        "<div class='pStack'>"+
+          "<div class='pTrack before'><i style='width:"+(r.pBefore[o]*100).toFixed(1)+"%'></i></div>"+
+          "<div class='pTrack after'><i style='width:"+(r.pAfter[o]*100).toFixed(1)+"%'></i></div>"+
+        "</div>"+
+        "<span class='num'>"+Math.round(r.pBefore[o]*100)+"% <b>→ "+Math.round(r.pAfter[o]*100)+"%</b></span>";
+      A.appendChild(row);
+    }
+    document.getElementById("capA").innerHTML =
+      "True digit <b>"+t+"</b>: "+(r.pBefore[t]*100).toFixed(1)+"% → <b>"+(r.pAfter[t]*100).toFixed(1)+"%</b>. Grey = before the step, green = after.";
+
+    // Panel B — |gradient| per output neuron
+    const B = document.getElementById("panelB"); B.innerHTML = "";
+    const maxg = Math.max(1e-9, ...Array.from(r.dz, Math.abs));
+    for (let o=0;o<OUT;o++){
+      const mag = Math.abs(r.dz[o]);
+      const col = o===t ? "var(--accent)" : "hsl(0,70%,55%)";   // true digit pulled UP, wrong digits pushed DOWN
+      const row = document.createElement("div"); row.className = "gRow";
+      row.innerHTML =
+        "<span class='cls'>"+o+"</span>"+
+        "<div class='gTrack'><i style='width:"+(mag/maxg*100).toFixed(1)+"%;background:"+col+"'></i></div>"+
+        "<span class='num'>"+f4(r.dz[o])+(o===t?"  (p−1)":"")+"</span>";
+      B.appendChild(row);
+    }
+
+    // Panel C — the worked update on the 5 biggest-gradient weights
+    const C = document.getElementById("panelC");
+    let ch = "<thead><tr><th>weight</th><th>old</th><th>grad</th><th>lr×grad</th><th>new</th></tr></thead><tbody>";
+    for (const e of r.top5){
+      const step = r.lr*e.grad, nw = e.old - step;
+      ch += "<tr><td>W2["+e.o+","+e.j+"]</td><td>"+f4(e.old)+"</td><td class='"+(e.grad<0?"neg":"pos")+"'>"+f4(e.grad)+"</td><td>"+f4(step)+"</td><td>"+f4(nw)+"</td></tr>";
+    }
+    C.innerHTML = ch + "</tbody>";
+
+    // Panel D — fc2 weight-gradient heatmap (10 digit rows × 128 hidden cols)
+    const dl = document.getElementById("panelDlabels"); dl.innerHTML = "";
+    for (let o=0;o<OUT;o++){ const s=document.createElement("span"); s.textContent=o; if(o===t) s.className="win"; dl.appendChild(s); }
+    const dctx = document.getElementById("panelD").getContext("2d");
+    let maxAbs=1e-9; for (let k=0;k<r.dW2.length;k++) maxAbs=Math.max(maxAbs, Math.abs(r.dW2[k]));
+    dctx.fillStyle="#0b0f17"; dctx.fillRect(0,0,512,160);
+    for (let o=0;o<OUT;o++) for (let j=0;j<HID;j++){
+      const c = weightColor(r.dW2[o*HID+j]/maxAbs);
+      dctx.fillStyle = "rgb("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+")";
+      dctx.fillRect(j*4, o*16, 4, 16);
+    }
+    dctx.strokeStyle="#fff"; dctx.lineWidth=1.5; dctx.strokeRect(0.75, t*16+0.75, 512-1.5, 16-1.5);
+
+    // Panel E — the gradient IS "predicted − actual"
+    const E = document.getElementById("panelE");
+    let eh = "<thead><tr><th>digit</th><th>softmax p</th><th>actual</th><th>grad = p − actual</th></tr></thead><tbody>";
+    for (let o=0;o<OUT;o++){
+      const actual = o===t?1:0, g = r.dz[o];
+      eh += "<tr class='"+(o===t?"win":"")+"'><td>"+o+"</td><td>"+r.pBefore[o].toFixed(3)+"</td><td>"+actual+"</td><td class='"+(g<0?"neg":"pos")+"'>"+f4(g)+"</td></tr>";
+    }
+    E.innerHTML = eh + "</tbody>";
+    document.getElementById("capE").textContent = "— for digit "+t+" it's p−1 < 0 (pushes its logit up); for the rest it's p > 0 (pushes them down).";
+  }
+
+  function openStepModal(){
+    if (trueLabel === null || !grid.some(v => v>0)) return;
+    renderStepModal();
+    stepModal.hidden = false;
+  }
+  function closeStepModal(){ stepModal.hidden = true; }
+  document.getElementById("stepClose").addEventListener("click", closeStepModal);
+  document.getElementById("stepDismiss").addEventListener("click", closeStepModal);
+  document.getElementById("stepDownload").addEventListener("click", () => { downloadInstance(); closeStepModal(); });
+  stepModal.addEventListener("click", (e) => { if (e.target === stepModal) closeStepModal(); });   // click backdrop
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !stepModal.hidden){ e.preventDefault(); closeStepModal(); } });
 
   // ================= weight inspector: show a neuron's weights as a red/green heatmap =================
   const inspector = document.getElementById("inspector");

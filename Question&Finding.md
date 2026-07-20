@@ -27,3 +27,17 @@ Yes. That one file is the entire "brain."
 To use it: rebuild the same structure (`SimpleNN()`) and pour the numbers back in with `model.load_state_dict(torch.load('model_weights.pth'))`. Structure comes from the code; learned values come from the file.
 
 **Mental model:** `model.py` = the empty brain, `model_weights.pth` = the memories. Same net, different weights file → different "knowledge."
+
+---
+
+### Q: What is the gradient at the output layer?
+
+For softmax + cross-entropy, the gradient of the loss w.r.t. the output logits is beautifully simple:
+
+**`dL/dlogits = softmax(logits) − one_hot(true_label)`**  — i.e. **predicted − actual**.
+
+- For the **true** class: `p_true − 1` → negative → its logit gets pushed **up**.
+- For every **wrong** class: `p_wrong` → positive → its logit gets pushed **down**.
+- This vector is *exactly* the output layer's **bias gradient** (`fc2.bias.grad`), and each output weight gradient is just `dz[o] · h[j]`.
+
+Verified numerically (`softmax − one_hot` vs `logits.grad` vs `fc2.bias.grad` all match to ~1e-8). Being able to say "the gradient at the output is just predicted minus actual" shows you understand the maths, not just the API. The visualizer's **"one SGD step, explained"** popup (Export for training) shows this live.
