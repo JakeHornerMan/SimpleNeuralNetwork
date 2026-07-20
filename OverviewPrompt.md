@@ -21,12 +21,17 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 
 ### ✅ Step 3a — Loss function · `loss_function.py`
 - The "how wrong was it?" step. Uses `nn.CrossEntropyLoss` — takes the 10 raw logits + the true label and returns **one number**: small when confident-and-right, large when confident-and-wrong.
-- Scores one real MNIST digit through the untrained net (lands near **ln(10) ≈ 2.30**, the random-guess baseline) and then demos the intuition with hand-made logits (confident-right ≈ 0.001, unsure ≈ 2.30, confident-wrong ≈ 9.0). **Verified working.**
+- Scores one real MNIST digit through the untrained net (lands near **ln(10) ≈ 2.30**, the random-guess baseline) and then demos the intuition with hand-made logits. Each loss is printed **alongside its probability** `p = exp(-loss)` (right ≈ 0.999, unsure = 0.10, wrong ≈ 0.0001), making the ln(10) baseline click: 2.30 = a 1-in-10 guess. **Verified working.**
 - Reinforces why `model.py` returns raw logits: `CrossEntropyLoss` applies softmax internally.
 
 ### ✅ Step 3b — Optimiser + backprop · `optimizer.py`
 - The "nudge the weights" step. Uses `torch.optim.Adam(model.parameters(), lr=0.001)` — Adam = adaptive gradient descent with momentum; `lr` is the step size (landscape/walk-downhill metaphor documented in-file).
-- Demonstrates the core training ritual on **one fixed batch of 8 digits**: `optimizer.zero_grad()` → forward → `loss` → `loss.backward()` (backprop = the slope) → `optimizer.step()` (the nudge). Loss falls **2.34 → 0.33** and accuracy climbs **0/8 → 8/8** — proof the weights are being pulled downhill. **Verified working.**
+- Demonstrates the core training ritual on **one fixed batch of 8 digits**: `optimizer.zero_grad()` → forward → `loss` → `loss.backward()` (backprop = the slope) → `optimizer.step()` (the nudge). **Verified working.**
+- Log makes the descent legible: per-step drop `(▼…)` shrinks as the slope flattens, `p(true)` climbs ~0.10 → ~0.79, and it flags that "8/8 correct" arrives (step 3) long before confidence does — **correct ≠ confident**.
+
+### ✅ Step 3c — Training loop + saved weights · `train.py`
+- The real thing: `DataLoader(batch_size=64, shuffle=True)` over all 60k images, `CrossEntropyLoss` + `Adam(lr=0.001)`, **5 epochs**, standard five steps per batch. Prints avg loss + train accuracy per epoch.
+- Run result: train accuracy **90.56% → 97.99%**, avg loss **0.34 → 0.067**. Saves `model_weights.pth` (`model.state_dict()`). **Verified working.**
 
 ### ✅ Interactive front-end · `nn_visualizer.html`
 - A self-contained HTML/JS Artifact that visualizes the model: **draw a digit** and watch it flow through the network live (forward pass reimplemented in JS with PyTorch-style random weight init).
@@ -47,9 +52,8 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 
 ## Not built yet
 
-- **Step 3c — Training loop:** `DataLoader` batching over the full 60k set for several epochs, and saving the trained weights.
-- **Step 4 — Evaluation:** measuring accuracy on the 10k test set.
-- **Wiring trained weights into `nn_visualizer.html`** so it becomes a real digit classifier instead of a random one.
+- **Step 4 — Evaluation:** load `model_weights.pth` and measure accuracy on the held-out 10k test set (checks it generalises, not just memorises).
+- **Wiring trained weights into `nn_visualizer.html`** so it becomes a real digit classifier instead of a random one — the hidden-neuron weight maps should now show recognisable stroke/blob patterns.
 
 ---
 
@@ -60,6 +64,7 @@ pip install torch torchvision     # one-time setup
 python load_mnist_data.py         # download data + sanity check
 python loss_function.py           # Step 3a: see cross-entropy loss react to good vs bad guesses
 python optimizer.py               # Step 3b: watch Adam drive the loss down on one batch (0/8 -> 8/8)
+python train.py                   # Step 3c: train 5 epochs on 60k images, save model_weights.pth (~98% train acc)
 python -c "import torch; from model import SimpleNN; print(SimpleNN()(torch.randn(4,1,28,28)).shape)"   # check the model → [4, 10]
 ```
 

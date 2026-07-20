@@ -1,8 +1,11 @@
+import sys                                     # to force UTF-8 output so the ▼ down-arrows print on Windows consoles
 import torch                                  # core PyTorch — tensors, autograd (the machinery that computes gradients)
 import torch.nn as nn                          # neural-network building blocks; here we want the loss function
 import torch.optim as optim                    # the optimisers live here — Adam, SGD, etc.
 from torchvision import datasets, transforms  # to grab a small batch of real digits to practise on
 from model import SimpleNN                     # our 784 -> 128 -> 10 network from Step 2
+
+sys.stdout.reconfigure(encoding="utf-8")      # so the ▼ symbols below render instead of turning into mojibake
 
 # ==================================================================
 # Step 3b — the optimiser: "how do we FIX the weights?"
@@ -58,6 +61,9 @@ labels = torch.tensor([train_data[i][1] for i in range(8)])          # the 8 tru
 print("Walking downhill on one fixed batch of 8 digits:")
 print(f"True labels: {labels.tolist()}\n")
 
+prev_loss = None                              # remember last step's loss so we can show the SIZE of each downhill step
+noted = False                                 # so the "correct but not confident" note prints only once
+
 for step in range(1, 21):                     # take 20 small downhill steps
     optimizer.zero_grad()                     # 1) clear last step's gradients — PyTorch ACCUMULATES them, so
                                               #    without this the slopes would pile up and point the wrong way
@@ -66,10 +72,21 @@ for step in range(1, 21):                     # take 20 small downhill steps
     loss.backward()                           # 4) BACKPROP: fill every weight's .grad with the slope at this spot
     optimizer.step()                          # 5) THE NUDGE: Adam moves every weight one small step downhill
 
-    if step == 1 or step % 2 == 0:            # print a few checkpoints so we can watch it descend
-        preds = logits.argmax(dim=1)          # the network's current guesses (highest score per image)
-        correct = (preds == labels).sum().item()   # how many of the 8 it now gets right
-        print(f"step {step:2d}  |  loss {loss.item():.4f}  |  {correct}/8 correct")
+    # --- metrics that make the descent legible ---
+    probs = torch.softmax(logits, dim=1)                          # the 10 scores turned into probabilities, per image
+    p_true = probs.gather(1, labels.unsqueeze(1)).mean().item()   # average probability the net put on the CORRECT digit
+    correct = (logits.argmax(dim=1) == labels).sum().item()      # how many of the 8 it currently gets right
+    drop = "" if prev_loss is None else f" (▼{prev_loss - loss.item():.3f})"   # how far we descended since the last step
 
-print("\nLoss falls and the guesses become correct - the weights are being pulled downhill.")
-print("Real training (Step 3c) does this over the whole 60,000-image set, in fresh batches, for several passes.")
+    # loss falls, the per-step drop (▼) shrinks as the slope flattens, and p(true) climbs from a guess toward conviction
+    print(f"step {step:2d}  |  loss {loss.item():.4f}{drop}  |  p(true) {p_true:.2f}  |  {correct}/8 correct")
+
+    if correct == 8 and not noted:            # the teaching moment: "correct" arrives long before "confident"
+        print("           ^ all 8 already correct — but p(true) is still low; watch the loss keep falling (correct != confident)")
+        noted = True
+
+    prev_loss = loss.item()                   # carry this step's loss forward to size the next step's drop
+
+print("\nThe per-step drop (▼) shrinks as we near the valley floor — the slope is flattening out.")
+print("And p(true) climbs from ~0.1 (a guess) toward conviction: loss = -ln(p(true)), the exact link back to loss_function.py.")
+print("Real training (Step 3c, train.py) does this over the whole 60,000-image set, in fresh batches, for several passes.")
