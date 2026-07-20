@@ -206,6 +206,10 @@
     background: var(--muted); opacity: .55;
   }
   .lossHint { font-size: 12px; color: var(--muted); }
+  .trainInstance { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+  button.btn.train { align-self: flex-start; }
+  button.btn.train:disabled { opacity: .5; cursor: not-allowed; }
+  .trainHint { font-size: 11.5px; color: var(--muted); }
 
   .legend {
     margin-top: 22px; display: flex; gap: 22px; flex-wrap: wrap;
@@ -359,6 +363,10 @@
             <span class="lossBaseline"></span>
           </div>
           <span class="lossHint" id="lossHint" tabindex="0" data-tip="ln(10) ≈ 2.30 is the score you'd get by guessing blindly between 10 digits. Sitting here means the network hasn't learned anything yet — which is expected, it's untrained.">pick the true label to measure how wrong the guess is</span>
+        </div>
+        <div class="trainInstance">
+          <button class="btn train" id="exportInstance" type="button" disabled data-tip="Downloads this exact drawing (the 784 normalized pixels the network actually sees) plus the digit you picked as its true label. Feed that file to train_one.py in Python to nudge the model toward getting it right — the browser can't change the model itself.">Export for training →</button>
+          <span class="trainHint" id="trainHint">draw a digit &amp; pick its true label to enable</span>
         </div>
       </div>
       <div class="warn">
@@ -741,6 +749,7 @@
     const hmax = forward();
     updateDiagram(hmax);
     renderNetInput();                                                            // update the "what the network sees" preview
+    updateExportBtn();                                                           // keep the "Export for training" button in sync
   }
 
   // ================= drawing pad =================
@@ -810,6 +819,30 @@
     if (already) { trueLabel = null; btn.setAttribute("aria-pressed", "false"); }  // clicking the active one clears it
     else { btn.setAttribute("aria-pressed", "true"); trueLabel = +btn.dataset.d; }
     recompute();                       // re-run forward + redraw so the loss readout reflects the new label
+  });
+
+  // ================= export the current drawing + label for the Python singular-training path =================
+  const exportBtn = document.getElementById("exportInstance");
+  const trainHint = document.getElementById("trainHint");
+  function updateExportBtn(){          // enable only when there's something to train on (ink drawn + a true label picked)
+    const drawn = grid.some(v => v>0);
+    const ready = drawn && trueLabel !== null;
+    exportBtn.disabled = !ready;
+    trainHint.textContent = ready
+      ? "downloads this drawing labelled “" + trueLabel + "” for train_one.py"
+      : (!drawn ? "draw a digit & pick its true label to enable" : "pick the true label above to enable");
+  }
+  exportBtn.addEventListener("click", () => {
+    if (trueLabel === null || !grid.some(v => v>0)) return;
+    // export netInput (the normalized 28×28 the network actually reads) so Python trains on the exact same input
+    const payload = { note: "SimpleNN single instance", label: trueLabel, pixels: Array.from(netInput, v => +v.toFixed(6)) };
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "instance-" + trueLabel + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+    trainHint.textContent = "exported instance-" + trueLabel + ".json → run:  python train_one.py";
   });
 
   // ================= weight inspector: show a neuron's weights as a red/green heatmap =================

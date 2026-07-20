@@ -48,8 +48,16 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 - **MNIST-style input normalization:** the drawing is cropped to the ink, scaled to a 20px box, and centred by centre-of-mass before the forward pass — otherwise trained-mode predictions are garbage on freehand strokes (verified: a raw off-centre bar predicts `6`, the same bar preprocessed predicts `1` @ 99.96%). A "what the network sees" preview shows the normalized 28×28 the net actually reads.
 - Honestly labeled as **untrained** — predictions are random because no training has happened yet. Live at the Artifact URL; the file is version-controlled in the repo.
 
+### ✅ Singular training path — fine-tune on one drawing · `train_one.py` + `embed_weights.py` + app export
+- The app can't write `model_weights.pth` (browser sandbox), so single-instance correction runs through Python.
+- **App:** an **"Export for training"** button (under the Actual-digit picker, enabled once a digit is drawn AND a true label is picked) downloads `instance-<label>.json` = the normalized `netInput` (784 floats) + label. Client-side Blob download, CSP-safe.
+- **`train_one.py`:** loads `model_weights.pth`, reads the instance, applies **one gentle SGD step** (`LR = 0.01`), prints prediction/`p(true)`/loss before→after, saves the weights back. Reset = delete `model_weights.pth` + re-run `train.py`.
+- **Critical finding (baked into comments):** LR is dangerous — one step at LR 0.30 **collapsed** test accuracy 97.5% → ~10% (catastrophic forgetting); LR 0.01 corrects the example (verified: a misclassified `6`→`4`, p 0.019→0.980) with only ~0.3% accuracy cost. Nudges are additive.
+- **`embed_weights.py`:** re-embeds `model_weights.pth` as the base64 `window.TRAINED` block in `nn_visualizer.html` (idempotent). Loop: export → `train_one.py` → `embed_weights.py` → redeploy. **All verified working.**
+
 ### 📄 Documentation
 - `CLAUDE.md` — guidance for future Claude Code sessions (commands, architecture, conventions, what's intentionally unbuilt).
+- `Question&Finding.md` — personal Q&A review notes.
 
 ---
 
@@ -65,6 +73,8 @@ python load_mnist_data.py         # download data + sanity check
 python loss_function.py           # Step 3a: see cross-entropy loss react to good vs bad guesses
 python optimizer.py               # Step 3b: watch Adam drive the loss down on one batch (0/8 -> 8/8)
 python train.py                   # Step 3c: train 5 epochs on 60k images, save model_weights.pth (~98% train acc)
+python train_one.py <file.json>   # fine-tune on one exported drawing (one gentle nudge); defaults to newest instance*.json
+python embed_weights.py           # push model_weights.pth into nn_visualizer.html, then redeploy the artifact
 python -c "import torch; from model import SimpleNN; print(SimpleNN()(torch.randn(4,1,28,28)).shape)"   # check the model → [4, 10]
 ```
 
