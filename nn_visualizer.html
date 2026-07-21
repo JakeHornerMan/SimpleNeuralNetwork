@@ -246,8 +246,26 @@
   }
   svg.net circle.clickable { cursor: pointer; }
 
+  /* ---- Neuron compare: the same hidden neuron, random init vs trained, side by side ---- */
+  .compareCard { margin-top: 22px; padding: 20px; }
+  .compareCard[hidden] { display: none; }
+  .cmpMaps { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 4px 0 16px; }
+  @media (max-width: 620px) { .cmpMaps { grid-template-columns: 1fr; } }
+  .cmpCol { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .cmpTag { font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted); }
+  .cmpCanvas { width: 168px; height: 168px; border-radius: 12px; background: #0b0f17;
+    border: 1px solid var(--line); image-rendering: pixelated; }
+  .cmpBias { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink); }
+  .cmpTable { width: 100%; border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .cmpTable th, .cmpTable td { text-align: right; padding: 5px 10px; border-top: 1px solid var(--line); }
+  .cmpTable th:first-child, .cmpTable td:first-child { text-align: left; color: var(--muted); }
+  .cmpTable thead th { border-top: none; color: var(--muted); font-weight: 600; }
+  .cmpTable tr.headline td { font-weight: 700; color: var(--ink); }
+  .cmpTable tr.headline td:first-child { color: var(--accent-ink); }
+
   .trainCard { margin-top: 22px; padding: 22px; display: flex; flex-direction: column; gap: 18px; }
-  .trainCard .inspSub code { font-family: ui-monospace, monospace; font-size: .9em; background: var(--panel-2); padding: 1px 6px; border-radius: 5px; }
+  .trainCard .inspSub code, .compareCard .inspSub code { font-family: ui-monospace, monospace; font-size: .9em; background: var(--panel-2); padding: 1px 6px; border-radius: 5px; }
   .trainStats { display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 12px; }
   .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; }
   .statNum { font-family: ui-monospace, monospace; font-size: 20px; font-weight: 680; letter-spacing: -.01em; }
@@ -517,6 +535,29 @@
     </div>
   </div>
 
+  <div class="card compareCard" id="neuronCompare" hidden>
+    <p class="eyebrow" style="margin:0 0 8px">Neuron compare · random init → trained</p>
+    <h2 class="inspTitle" id="cmpTitle">Hidden neuron</h2>
+    <p class="inspSub">A freshly-initialised neuron's 784 weights are independent random noise — neighbouring pixels don't agree, so the receptive field is <b>static</b> with no shape. Training slowly <b>correlates</b> those weights into a smooth stroke/blob: a real feature detector. Both maps below use the <b>same colour scale</b>, so you can see the trained weights are stronger, not just tidier.</p>
+    <div class="cmpMaps" id="cmpMaps" data-tip="The same hidden neuron, before and after training, on one shared red→green scale. Left: random init — faint TV static, no structure. Right: trained — the weights have organised into a spatial pattern (the input feature this neuron learned to detect). Both are normalized by the same maximum, so brightness is directly comparable.">
+      <div class="cmpCol">
+        <span class="cmpTag">Untrained (random)</span>
+        <canvas id="cmpUntr" class="cmpCanvas" width="168" height="168" aria-label="Untrained receptive field"></canvas>
+        <span class="cmpBias" id="cmpUntrBias"></span>
+      </div>
+      <div class="cmpCol">
+        <span class="cmpTag">Trained</span>
+        <canvas id="cmpTrn" class="cmpCanvas" width="168" height="168" aria-label="Trained receptive field"></canvas>
+        <span class="cmpBias" id="cmpTrnBias"></span>
+      </div>
+    </div>
+    <table class="cmpTable">
+      <thead><tr><th>metric</th><th>untrained</th><th>trained</th></tr></thead>
+      <tbody id="cmpBody"><!-- filled in by renderCompare() --></tbody>
+    </table>
+    <p class="inspSub" style="margin-top:12px" data-tip="Smoothness = the average correlation between each weight and its immediate grid neighbours. ~0 means the weights are uncorrelated noise (static); a clearly positive number means nearby weights move together (structure). It's the single number that captures 'random → feature detector'."><b>Smoothness</b> is the average correlation between each weight and its 4 grid neighbours — the number that captures the jump from static to structure. The per-digit selectivity (which digits this neuron fires for) needs the full test set, so that lives in <code>compare_neurons.py</code>'s PNG.</p>
+  </div>
+
   <div class="card trainCard">
     <div>
       <p class="eyebrow" style="margin:0 0 8px">Training</p>
@@ -726,6 +767,38 @@
       ? "<b>Trained network.</b> These weights were learned from 60,000 MNIST digits (~98% train accuracy), so the guesses are real. Note: freehand strokes differ from MNIST's centered digits, so it's strong but not flawless."
       : "<b>Untrained network.</b> Weights are random, so the guess is essentially a coin-flip — the point here is the <i>flow</i>, not the accuracy. Press <b>Load trained weights</b> and these lights start meaning something.";
     recompute(); renderInspector();    // re-run the forward pass and refresh any open weight map with the new numbers
+  }
+
+  // ---------- fixed reference weights for the Neuron-compare panel ----------
+  // The compare panel always contrasts a stable "random" neuron against the trained one, no matter what the
+  // live network is currently set to. So we snapshot ONE random draw and decode the trained weights ONCE.
+  let CMP_RAND_W1, CMP_RAND_b1, CMP_TRN_W1, CMP_TRN_b1;   // fc1 rows/biases for both reference versions
+  const HAVE_TRAINED = !!(window.TRAINED && window.TRAINED.fc1w);   // is the trained blob embedded in the page?
+  function initCompareRefs(){
+    const rnd = mulberry32(0xC0FFEE);                 // its own fixed seed -> the "before" neuron never changes
+    const k1 = 1/Math.sqrt(IN);
+    CMP_RAND_W1 = new Float32Array(HID*IN); CMP_RAND_b1 = new Float32Array(HID);
+    for (let i=0;i<CMP_RAND_W1.length;i++) CMP_RAND_W1[i] = (rnd()*2-1)*k1;   // same init math as initWeights()
+    for (let i=0;i<CMP_RAND_b1.length;i++) CMP_RAND_b1[i] = (rnd()*2-1)*k1;
+    if (HAVE_TRAINED){ CMP_TRN_W1 = b64ToF32(window.TRAINED.fc1w); CMP_TRN_b1 = b64ToF32(window.TRAINED.fc1b); }
+  }
+
+  // mean & population std of an array (small helper for the compare metrics table)
+  function meanStd(v){
+    let s=0; for (let i=0;i<v.length;i++) s+=v[i]; const m=s/v.length;
+    let d=0; for (let i=0;i<v.length;i++){ const t=v[i]-m; d+=t*t; } return {mean:m, std:Math.sqrt(d/v.length)};
+  }
+  // SPATIAL SMOOTHNESS = average Pearson correlation between each weight and its immediate grid neighbours.
+  // Mirrors compare_neurons.py: pair every cell with its RIGHT and its BELOW neighbour, then correlate the
+  // two aligned lists. ~0 = uncorrelated static (random); clearly positive = smooth structure (trained).
+  function neighbourCorr(v, w, h){
+    const a=[], b=[];
+    for (let y=0;y<h;y++) for (let x=0;x<w-1;x++){ a.push(v[y*w+x]); b.push(v[y*w+x+1]); }   // right neighbours
+    for (let y=0;y<h-1;y++) for (let x=0;x<w;x++){ a.push(v[y*w+x]); b.push(v[(y+1)*w+x]); }  // below neighbours
+    const n=a.length; let ma=0, mb=0; for (let i=0;i<n;i++){ ma+=a[i]; mb+=b[i]; } ma/=n; mb/=n;
+    let num=0, da=0, db=0;
+    for (let i=0;i<n;i++){ const x=a[i]-ma, y=b[i]-mb; num+=x*y; da+=x*x; db+=y*y; }
+    return num/Math.sqrt(da*db);                       // Pearson r between the cell list and its neighbour list
   }
 
   // ---------- input state ----------
@@ -1258,12 +1331,15 @@
     return [ base[0]+(tgt[0]-base[0])*a, base[1]+(tgt[1]-base[1])*a, base[2]+(tgt[2]-base[2])*a ];
   }
 
-  // paint a w*h grid of weights onto any canvas context, scaled up, aspect preserved & centered
-  function paintWeights(ctx, cw, ch, values, w, h){
+  // paint a w*h grid of weights onto any canvas context, scaled up, aspect preserved & centered.
+  // forceMax (optional): normalize by this magnitude instead of the grid's own max — lets two maps
+  // share ONE scale so their brightness is directly comparable (used by the Neuron-compare panel).
+  function paintWeights(ctx, cw, ch, values, w, h, forceMax){
     const src = document.createElement("canvas"); src.width = w; src.height = h;
     const sctx = src.getContext("2d"); const img = sctx.createImageData(w, h);
     let maxAbs = 1e-9;                          // normalize by the largest magnitude so faint weights still show
-    for (let i=0;i<values.length;i++) maxAbs = Math.max(maxAbs, Math.abs(values[i]));
+    if (forceMax) maxAbs = forceMax;           // ...unless a shared scale was handed in
+    else for (let i=0;i<values.length;i++) maxAbs = Math.max(maxAbs, Math.abs(values[i]));
     for (let i=0;i<values.length;i++){
       const c = weightColor(values[i]/maxAbs); const p = i*4;
       img.data[p]=c[0]; img.data[p+1]=c[1]; img.data[p+2]=c[2]; img.data[p+3]=255;
@@ -1283,9 +1359,39 @@
     renderInspector();
   }
 
+  // ---------- Neuron compare: paint the same hidden neuron random-vs-trained on ONE shared scale ----------
+  const cmpCard = document.getElementById("neuronCompare");
+  const cmpUntrCtx = document.getElementById("cmpUntr").getContext("2d");
+  const cmpTrnCtx  = document.getElementById("cmpTrn").getContext("2d");
+  function renderCompare(j){
+    // No trained blob embedded (e.g. an untrained export of the page) -> nothing to contrast against, so hide it.
+    if (!HAVE_TRAINED){ cmpCard.hidden = true; return; }
+    cmpCard.hidden = false;
+    document.getElementById("cmpTitle").textContent = "Hidden neuron  h[" + j + "]";
+    const wU = CMP_RAND_W1.subarray(j*IN, (j+1)*IN);   // this neuron's 784 random weights
+    const wT = CMP_TRN_W1.subarray(j*IN, (j+1)*IN);    // this neuron's 784 trained weights
+    // shared max-|weight| across BOTH maps -> identical colour scale, so brightness is directly comparable
+    let M = 1e-9;
+    for (let i=0;i<IN;i++){ M = Math.max(M, Math.abs(wU[i]), Math.abs(wT[i])); }
+    paintWeights(cmpUntrCtx, 168, 168, wU, 28, 28, M);   // forceMax = M -> both share the scale
+    paintWeights(cmpTrnCtx,  168, 168, wT, 28, 28, M);
+    const su = meanStd(wU), st = meanStd(wT);            // mean & std for each version
+    const smU = neighbourCorr(wU, 28, 28), smT = neighbourCorr(wT, 28, 28);   // the headline smoothness metric
+    document.getElementById("cmpUntrBias").innerHTML = "bias " + CMP_RAND_b1[j].toFixed(3);
+    document.getElementById("cmpTrnBias").innerHTML  = "bias " + CMP_TRN_b1[j].toFixed(3);
+    const row = (name, u, t, cls) => "<tr" + (cls ? " class='" + cls + "'" : "") +
+      "><td>" + name + "</td><td>" + u + "</td><td>" + t + "</td></tr>";
+    document.getElementById("cmpBody").innerHTML =
+      row("weight mean", su.mean.toFixed(4), st.mean.toFixed(4)) +
+      row("weight std",  su.std.toFixed(4),  st.std.toFixed(4)) +
+      row("smoothness",  smU.toFixed(3),     smT.toFixed(3), "headline") +
+      row("bias", CMP_RAND_b1[j].toFixed(3), CMP_TRN_b1[j].toFixed(3));
+  }
+
   function renderInspector(){
     if (sel === null){                       // nothing selected -> hide the whole inspector panel
       inspector.hidden = true;
+      cmpCard.hidden = true;                 // ...and the compare panel with it
       selRing.setAttribute("opacity", 0);
       return;
     }
@@ -1299,6 +1405,7 @@
         "Each of the 784 pixels is one weight, laid out over the input image (28×28). Green = a bright pixel there pushes this neuron toward firing; red = it pushes it toward staying off; darker = little effect. So this picture is the input pattern the neuron is tuned to detect — its receptive field. Random now, because the network is untrained; after training it starts to look like a stroke or blob.");
       const p = hidPos(j);
       selRing.setAttribute("cx", p.x); selRing.setAttribute("cy", p.y); selRing.setAttribute("r", 12);
+      renderCompare(j);                      // hidden neurons get the random-vs-trained compare panel
     } else {
       const o = sel.idx;
       drawWeights(W2.subarray(o*HID, (o+1)*HID), 8, 16);           // 128 weights = 8×16, matching the hidden grid
@@ -1307,6 +1414,7 @@
       wmap.setAttribute("data-tip",
         "Each cell is one weight connecting a hidden neuron to this digit (128 of them, on the same 8×16 grid as the diagram). Green = when that hidden neuron fires, it votes FOR calling the image a " + o + "; red = it votes against; darker = little say. Add up all 128 votes and you get this digit's score.");
       selRing.setAttribute("cx", OX); selRing.setAttribute("cy", OY0 + o*OStep); selRing.setAttribute("r", 22);
+      cmpCard.hidden = true;                 // the compare panel is receptive-field specific -> only for hidden neurons
     }
     selRing.setAttribute("opacity", 1);
   }
@@ -1366,6 +1474,7 @@
 
   // ---------- boot ----------
   initWeights();
+  initCompareRefs();      // snapshot the fixed random + trained fc1 rows the Neuron-compare panel contrasts
   buildDiagram();
   renderPad();
   recompute();

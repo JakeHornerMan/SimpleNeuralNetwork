@@ -57,6 +57,15 @@ A learn-by-building project: a feed-forward neural network for **MNIST handwritt
 - **"One SGD step, explained" popup:** clicking **Export for training** opens a modal that computes the exact single SGD step live in JS (on the current drawing + label + loaded weights) and shows 5 panels — (A) before→after probabilities, (B) per-output-neuron gradient size, (C) the top-5 weight updates worked as `new = old − lr×grad`, (D) the fc2 weight-gradient heatmap, (E) **gradient = predicted − actual** (`softmax − one_hot`, = the fc2 bias gradient). The download lives in the modal footer. Preview only — it doesn't mutate the live model. Verified: JS math matches a real PyTorch SGD step (before/after probs, gradient, identity) to ~1e-7.
 - **"Show the maths, worked" derivation:** a collapsible section inside that popup walks the full backward pass with **live numbers from the current drawing** — forward pipeline, softmax, `L = −ln p_y`, the 4-step derivation of `∂L/∂z = predicted − actual`, the chain-rule hop to fc2 weights (with a live Panel B→C bridge recovering the hidden activation `a_j = grad/dz`), the worked update, the η=0.30 catastrophic-forgetting note, and a 45-second interview crib. Equations use **native MathML** (no KaTeX/CDN — CSP-safe); styling reuses the app's tokens.
 
+### ✅ Neuron dissection — random init vs trained · `compare_neurons.py` + front-end "Neuron compare"
+- **`compare_neurons.py`** (matplotlib) contrasts a single hidden neuron **before and after training** — the "static → structure" story made visible and measurable. Default neuron **2**, optional CLI index (`python compare_neurons.py 7`).
+- Builds two `SimpleNN`s — one freshly random-initialised, one loaded from `model_weights.pth` — and pulls the neuron's 784-weight `fc1` row + bias from each.
+- **Receptive fields:** both plotted as 28×28 maps on **one shared** red→green (`RdYlGn`) scale (common max-|weight|), so the trained weights read as genuinely stronger, not just tidier. Each panel's title shows its bias.
+- **Metrics** (printed table + on-figure text): weight mean/std, **spatial smoothness** = average Pearson correlation between each weight and its 4 grid neighbours (untrained ≈ 0, trained clearly positive — the number that captures "static → structure"), and bias. Verified run on neuron 2: smoothness **+0.024 → +0.627**.
+- **Weights → behaviour:** runs the full 10k MNIST test set through both models, records this neuron's **post-ReLU** activation for every image, and bar-charts its **mean activation per true digit class** (untrained ≈ flat, trained selective). Neuron 2 fires most for digits **6, 8, 2**.
+- Saves `neuron_<idx>_compare.png` and prints a plain-language summary (smoothness rise, bias shift, top digits). **Verified working.**
+- **Front-end mirror:** `nn_visualizer.html` gains a **"Neuron compare"** card that appears when you click a hidden neuron — the same neuron's receptive field **random-vs-trained** on one shared scale, plus an in-browser mean/std/**smoothness**/bias table (smoothness math verified identical to the Python: 0.627 for trained h[2]). Uses the already-embedded `window.TRAINED` + a fixed-seed random snapshot, so no re-embed is needed; the per-digit selectivity bars stay a Python/PNG deliverable (the browser has no test set).
+
 ### 📄 Documentation
 - `CLAUDE.md` — guidance for future Claude Code sessions (commands, architecture, conventions, what's intentionally unbuilt).
 - `Question&Finding.md` — personal Q&A review notes.
@@ -77,6 +86,7 @@ python optimizer.py               # Step 3b: watch Adam drive the loss down on o
 python train.py                   # Step 3c: train 5 epochs on 60k images, save model_weights.pth (~98% train acc)
 python train_one.py <file.json>   # fine-tune on one exported drawing (one gentle nudge); defaults to newest instance*.json
 python embed_weights.py           # push model_weights.pth into nn_visualizer.html, then redeploy the artifact
+python compare_neurons.py [idx]   # contrast one hidden neuron (default 2) random-vs-trained -> neuron_<idx>_compare.png (needs matplotlib)
 python -c "import torch; from model import SimpleNN; print(SimpleNN()(torch.randn(4,1,28,28)).shape)"   # check the model → [4, 10]
 ```
 
